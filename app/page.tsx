@@ -14,6 +14,14 @@ type Company = {
   social_gap_score: number;
 };
 
+type Review = {
+  id: number;
+  review_text: string | null;
+  rating: number | null;
+  review_date: string | null;
+  flag_reason: string | null;
+};
+
 const styles = {
   page: { maxWidth: 1000, margin: "0 auto", padding: "32px 20px" } as React.CSSProperties,
   h1: { fontSize: 24, marginBottom: 4 } as React.CSSProperties,
@@ -151,6 +159,10 @@ export default function Home() {
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [reviewsCompany, setReviewsCompany] = useState<Company | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const loadCompanies = useCallback(async (city?: string) => {
     try {
@@ -247,6 +259,27 @@ export default function Home() {
     }
   }
 
+  async function handleViewReviews(company: Company) {
+    setReviewsCompany(company);
+    setReviews([]);
+    setReviewsError(null);
+    setReviewsLoading(true);
+    try {
+      const res = await fetch(`/api/companies/${company.id}/reviews`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      setReviews(data.reviews);
+    } catch (err: any) {
+      setReviewsError(err.message);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }
+
+  function closeReviewsModal() {
+    setReviewsCompany(null);
+  }
+
   return (
     <div style={styles.page}>
       <h1 style={styles.h1}>Social Gap Finder</h1>
@@ -314,7 +347,15 @@ export default function Home() {
                   {c.has_instagram === true && <span style={styles.badgeOk}>Has Instagram</span>}
                   {c.has_instagram === null && <span style={styles.badgeUnknown}>Unknown</span>}
                 </td>
-                <td style={styles.td}>{c.flagged_review_count}</td>
+                <td style={styles.td}>
+                  {c.flagged_review_count > 0 ? (
+                    <button style={styles.linkButton} onClick={() => handleViewReviews(c)}>
+                      {c.flagged_review_count} — view
+                    </button>
+                  ) : (
+                    0
+                  )}
+                </td>
                 <td style={styles.td}>{c.social_gap_score}</td>
                 <td style={styles.td}>
                   {c.website ? (
@@ -375,6 +416,50 @@ export default function Home() {
                 </p>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {reviewsCompany && (
+        <div style={styles.overlay} onClick={closeReviewsModal}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <strong>Flagged reviews — {reviewsCompany.name}</strong>
+              <button style={styles.buttonSecondary} onClick={closeReviewsModal}>
+                Close
+              </button>
+            </div>
+
+            {reviewsLoading && <div style={styles.status}>Loading…</div>}
+            {reviewsError && <div style={styles.error}>{reviewsError}</div>}
+
+            {!reviewsLoading && !reviewsError && reviews.length === 0 && (
+              <div style={styles.status}>No flagged reviews found.</div>
+            )}
+
+            {!reviewsLoading &&
+              !reviewsError &&
+              reviews.map((r) => (
+                <div
+                  key={r.id}
+                  style={{
+                    background: "#0f1115",
+                    border: "1px solid #333844",
+                    borderRadius: 6,
+                    padding: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#9a9a9a", marginBottom: 6 }}>
+                    {r.rating !== null && <span>Rating: {r.rating}/5</span>}
+                    {r.review_date && <span> · {r.review_date}</span>}
+                  </div>
+                  <div style={{ fontSize: 13, marginBottom: 6 }}>{r.review_text}</div>
+                  {r.flag_reason && (
+                    <div style={{ fontSize: 11, color: "#ff8a8a" }}>Flagged: {r.flag_reason}</div>
+                  )}
+                </div>
+              ))}
           </div>
         </div>
       )}
