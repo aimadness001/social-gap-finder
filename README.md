@@ -87,3 +87,17 @@ or pull env vars locally with `vercel env pull`.
   call and keep the same return shape.
 - **Mark leads as contacted:** add a `contacted boolean` column to
   `companies` and a button in the UI to toggle it.
+
+## Outreach email drafts
+
+Each row has a "Draft email" button that opens a ready-to-edit email
+(subject + body) built from that company's own data — no AI call, just
+template logic in `lib/emailTemplate.ts`. If they have no Instagram, the
+draft opens with that. If a flagged review exists, it quotes the complaint
+directly. Copy buttons let you paste it into your email client; fill in
+your name/contact info before sending.
+
+To swap this for AI-generated drafts later: replace the body of
+`generateOutreachEmail` in `lib/emailTemplate.ts` with a call to an AI API
+(Claude/OpenAI), keeping the same `{ subject, body }` return shape — no
+other files need to change.

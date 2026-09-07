@@ -87,6 +87,53 @@ const styles = {
   } as React.CSSProperties,
   status: { fontSize: 13, color: "#9a9a9a", marginTop: 10 } as React.CSSProperties,
   error: { fontSize: 13, color: "#ff8a8a", marginTop: 10 } as React.CSSProperties,
+  linkButton: {
+    background: "transparent",
+    border: "1px solid #333844",
+    borderRadius: 6,
+    padding: "4px 10px",
+    color: "#7aa2ff",
+    fontSize: 12,
+    cursor: "pointer",
+  } as React.CSSProperties,
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    zIndex: 50,
+  } as React.CSSProperties,
+  modal: {
+    background: "#181b22",
+    border: "1px solid #262a33",
+    borderRadius: 10,
+    padding: 24,
+    maxWidth: 560,
+    width: "100%",
+    maxHeight: "80vh",
+    overflowY: "auto" as const,
+  } as React.CSSProperties,
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  } as React.CSSProperties,
+  textarea: {
+    width: "100%",
+    minHeight: 260,
+    background: "#0f1115",
+    border: "1px solid #333844",
+    borderRadius: 6,
+    padding: 12,
+    color: "#e6e6e6",
+    fontSize: 13,
+    fontFamily: "inherit",
+    boxSizing: "border-box" as const,
+  } as React.CSSProperties,
 };
 
 export default function Home() {
@@ -98,6 +145,12 @@ export default function Home() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cityFilter, setCityFilter] = useState("");
+  const [draftCompany, setDraftCompany] = useState<Company | null>(null);
+  const [draftSubject, setDraftSubject] = useState("");
+  const [draftBody, setDraftBody] = useState("");
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
   const loadCompanies = useCallback(async (city?: string) => {
     try {
@@ -161,6 +214,39 @@ export default function Home() {
     window.open(url, "_blank");
   }
 
+  async function handleDraftEmail(company: Company) {
+    setDraftCompany(company);
+    setDraftSubject("");
+    setDraftBody("");
+    setDraftError(null);
+    setCopyStatus(null);
+    setDraftLoading(true);
+    try {
+      const res = await fetch(`/api/companies/${company.id}/draft`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      setDraftSubject(data.draft.subject);
+      setDraftBody(data.draft.body);
+    } catch (err: any) {
+      setDraftError(err.message);
+    } finally {
+      setDraftLoading(false);
+    }
+  }
+
+  function closeDraftModal() {
+    setDraftCompany(null);
+  }
+
+  async function handleCopy(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus(`${label} copied.`);
+    } catch {
+      setCopyStatus("Couldn't copy — select and copy manually.");
+    }
+  }
+
   return (
     <div style={styles.page}>
       <h1 style={styles.h1}>Social Gap Finder</h1>
@@ -209,12 +295,13 @@ export default function Home() {
               <th style={styles.th}>Score</th>
               <th style={styles.th}>Website</th>
               <th style={styles.th}>Phone</th>
+              <th style={styles.th}>Outreach</th>
             </tr>
           </thead>
           <tbody>
             {companies.length === 0 && (
               <tr>
-                <td style={styles.td} colSpan={6}>
+                <td style={styles.td} colSpan={7}>
                   No companies yet. Run a search above.
                 </td>
               </tr>
@@ -239,11 +326,58 @@ export default function Home() {
                   )}
                 </td>
                 <td style={styles.td}>{c.phone || "—"}</td>
+                <td style={styles.td}>
+                  <button style={styles.linkButton} onClick={() => handleDraftEmail(c)}>
+                    Draft email
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {draftCompany && (
+        <div style={styles.overlay} onClick={closeDraftModal}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <strong>Outreach draft — {draftCompany.name}</strong>
+              <button style={styles.buttonSecondary} onClick={closeDraftModal}>
+                Close
+              </button>
+            </div>
+
+            {draftLoading && <div style={styles.status}>Generating…</div>}
+            {draftError && <div style={styles.error}>{draftError}</div>}
+
+            {!draftLoading && !draftError && (
+              <>
+                <label style={{ fontSize: 12, color: "#9a9a9a" }}>Subject</label>
+                <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 16 }}>
+                  <input style={styles.input} value={draftSubject} readOnly />
+                  <button style={styles.buttonSecondary} onClick={() => handleCopy(draftSubject, "Subject")}>
+                    Copy
+                  </button>
+                </div>
+
+                <label style={{ fontSize: 12, color: "#9a9a9a" }}>Body</label>
+                <textarea style={{ ...styles.textarea, marginTop: 4 }} value={draftBody} readOnly />
+                <div style={{ marginTop: 8 }}>
+                  <button style={styles.buttonSecondary} onClick={() => handleCopy(draftBody, "Body")}>
+                    Copy body
+                  </button>
+                </div>
+
+                {copyStatus && <div style={styles.status}>{copyStatus}</div>}
+                <p style={{ fontSize: 12, color: "#9a9a9a", marginTop: 12 }}>
+                  This is a starting point — personalize it before sending. Fill in your name and
+                  contact info at the bottom.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
