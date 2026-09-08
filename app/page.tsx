@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 type Company = {
   id: number;
@@ -153,7 +153,9 @@ export default function Home() {
   const [initializing, setInitializing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cityFilter, setCityFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState(""); // "" = show all cities
+  const [websiteFilter, setWebsiteFilter] = useState(""); // "" | "has" | "none"
+  const [instagramFilter, setInstagramFilter] = useState(""); // "" | "has" | "none" | "unknown"
   const [draftCompany, setDraftCompany] = useState<Company | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
@@ -211,11 +213,12 @@ export default function Home() {
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
       setStatus(
-        `Processed ${data.processed} of ${data.totalFound} companies found in ${data.city}.` +
+        `Processed ${data.processed} of ${data.totalFound} companies found in ${data.city}. ` +
+          `Showing all cities below — use the filter to narrow it down.` +
           (data.note ? ` ${data.note}` : "")
       );
-      setCityFilter(location);
-      await loadCompanies(location);
+      // Reload everything (not just this city) so past search results stay visible.
+      await loadCompanies();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -227,6 +230,26 @@ export default function Home() {
     const url = cityFilter ? `/api/export?city=${encodeURIComponent(cityFilter)}` : "/api/export";
     window.open(url, "_blank");
   }
+
+  const cities = useMemo(() => {
+    const set = new Set(companies.map((c) => c.city));
+    return Array.from(set).sort();
+  }, [companies]);
+
+  const visibleCompanies = useMemo(() => {
+    return companies.filter((c) => {
+      if (cityFilter && c.city !== cityFilter) return false;
+
+      if (websiteFilter === "has" && !c.website) return false;
+      if (websiteFilter === "none" && c.website) return false;
+
+      if (instagramFilter === "has" && c.has_instagram !== true) return false;
+      if (instagramFilter === "none" && c.has_instagram !== false) return false;
+      if (instagramFilter === "unknown" && c.has_instagram !== null) return false;
+
+      return true;
+    });
+  }, [companies, cityFilter, websiteFilter, instagramFilter]);
 
   async function handleDraftEmail(company: Company) {
     setDraftCompany(company);
@@ -322,6 +345,45 @@ export default function Home() {
         {error && <div style={styles.error}>{error}</div>}
       </div>
 
+      <div style={{ ...styles.row, marginBottom: 12, alignItems: "center" }}>
+        <label style={{ fontSize: 13, color: "#9a9a9a" }}>City:</label>
+        <select
+          style={{ ...styles.input, flex: "none", minWidth: 180 }}
+          value={cityFilter}
+          onChange={(e) => setCityFilter(e.target.value)}
+        >
+          <option value="">All cities ({companies.length})</option>
+          {cities.map((city) => (
+            <option key={city} value={city}>
+              {city} ({companies.filter((c) => c.city === city).length})
+            </option>
+          ))}
+        </select>
+
+        <label style={{ fontSize: 13, color: "#9a9a9a" }}>Website:</label>
+        <select
+          style={{ ...styles.input, flex: "none", minWidth: 150 }}
+          value={websiteFilter}
+          onChange={(e) => setWebsiteFilter(e.target.value)}
+        >
+          <option value="">All</option>
+          <option value="has">Has website</option>
+          <option value="none">No website</option>
+        </select>
+
+        <label style={{ fontSize: 13, color: "#9a9a9a" }}>Instagram:</label>
+        <select
+          style={{ ...styles.input, flex: "none", minWidth: 150 }}
+          value={instagramFilter}
+          onChange={(e) => setInstagramFilter(e.target.value)}
+        >
+          <option value="">All</option>
+          <option value="has">Has Instagram</option>
+          <option value="none">No Instagram</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+
       <div style={styles.card}>
         <table style={styles.table}>
           <thead>
@@ -336,14 +398,16 @@ export default function Home() {
             </tr>
           </thead>
           <tbody>
-            {companies.length === 0 && (
+            {visibleCompanies.length === 0 && (
               <tr>
                 <td style={styles.td} colSpan={7}>
-                  No companies yet. Run a search above.
+                  {companies.length === 0
+                    ? "No companies yet. Run a search above."
+                    : "No companies match this city filter."}
                 </td>
               </tr>
             )}
-            {companies.map((c) => (
+            {visibleCompanies.map((c) => (
               <tr key={c.id}>
                 <td style={styles.td}>{c.name}</td>
                 <td style={styles.td}>
@@ -371,7 +435,7 @@ export default function Home() {
                       site
                     </a>
                   ) : (
-                    "—"
+                    <span style={styles.badgeGap}>No website</span>
                   )}
                 </td>
                 <td style={styles.td}>{c.phone || "—"}</td>
