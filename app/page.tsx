@@ -20,6 +20,7 @@ type Review = {
   rating: number | null;
   review_date: string | null;
   flag_reason: string | null;
+  flagged_social_complaint?: boolean;
 };
 
 const styles = {
@@ -163,6 +164,7 @@ export default function Home() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [reviewsShowingAll, setReviewsShowingAll] = useState(false);
 
   const loadCompanies = useCallback(async (city?: string) => {
     try {
@@ -259,13 +261,15 @@ export default function Home() {
     }
   }
 
-  async function handleViewReviews(company: Company) {
+  async function handleViewReviews(company: Company, all: boolean) {
     setReviewsCompany(company);
     setReviews([]);
     setReviewsError(null);
+    setReviewsShowingAll(all);
     setReviewsLoading(true);
     try {
-      const res = await fetch(`/api/companies/${company.id}/reviews`);
+      const url = `/api/companies/${company.id}/reviews${all ? "?all=true" : ""}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
       setReviews(data.reviews);
@@ -348,13 +352,17 @@ export default function Home() {
                   {c.has_instagram === null && <span style={styles.badgeUnknown}>Unknown</span>}
                 </td>
                 <td style={styles.td}>
-                  {c.flagged_review_count > 0 ? (
-                    <button style={styles.linkButton} onClick={() => handleViewReviews(c)}>
-                      {c.flagged_review_count} — view
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>{c.flagged_review_count}</span>
+                    {c.flagged_review_count > 0 && (
+                      <button style={styles.linkButton} onClick={() => handleViewReviews(c, false)}>
+                        view flagged
+                      </button>
+                    )}
+                    <button style={styles.linkButton} onClick={() => handleViewReviews(c, true)}>
+                      view all
                     </button>
-                  ) : (
-                    0
-                  )}
+                  </div>
                 </td>
                 <td style={styles.td}>{c.social_gap_score}</td>
                 <td style={styles.td}>
@@ -424,7 +432,9 @@ export default function Home() {
         <div style={styles.overlay} onClick={closeReviewsModal}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <strong>Flagged reviews — {reviewsCompany.name}</strong>
+              <strong>
+                {reviewsShowingAll ? "All reviews" : "Flagged reviews"} — {reviewsCompany.name}
+              </strong>
               <button style={styles.buttonSecondary} onClick={closeReviewsModal}>
                 Close
               </button>
@@ -434,7 +444,11 @@ export default function Home() {
             {reviewsError && <div style={styles.error}>{reviewsError}</div>}
 
             {!reviewsLoading && !reviewsError && reviews.length === 0 && (
-              <div style={styles.status}>No flagged reviews found.</div>
+              <div style={styles.status}>
+                {reviewsShowingAll
+                  ? "No reviews were saved for this company (Google may not have returned any)."
+                  : "No flagged reviews found."}
+              </div>
             )}
 
             {!reviewsLoading &&
@@ -444,7 +458,7 @@ export default function Home() {
                   key={r.id}
                   style={{
                     background: "#0f1115",
-                    border: "1px solid #333844",
+                    border: r.flagged_social_complaint ? "1px solid #7a3030" : "1px solid #333844",
                     borderRadius: 6,
                     padding: 12,
                     marginBottom: 12,

@@ -112,6 +112,17 @@ export async function getFlaggedReviewsForCompany(companyId: number): Promise<Re
   return result.rows;
 }
 
+// Returns every review we saved for a company (flagged or not), so you can
+// eyeball what Google actually returned — useful for checking whether the
+// keyword detection is missing something real, or there's just nothing to
+// catch in this batch of reviews.
+export async function getAllReviewsForCompany(companyId: number): Promise<Review[]> {
+  const result = await sql<Review>`
+    SELECT * FROM reviews WHERE company_id = ${companyId} ORDER BY flagged_social_complaint DESC, id ASC;
+  `;
+  return result.rows;
+}
+
 export async function initSchema() {
   await sql`
     CREATE TABLE IF NOT EXISTS companies (
