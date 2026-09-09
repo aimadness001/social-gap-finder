@@ -109,6 +109,13 @@ export type ComplaintCheckResult = {
   reason: string | null;
 };
 
+// Reviews at or below this star rating get flagged automatically, regardless
+// of what they say — an unhappy customer is worth a look on its own, and
+// Google only ever gives us up to 5 reviews with no way to ask for the
+// negative ones specifically, so this is how we surface them among what we
+// do get.
+const LOW_RATING_THRESHOLD = 2;
+
 export function checkReviewForComplaint(reviewText: string): ComplaintCheckResult {
   const text = reviewText.toLowerCase();
 
@@ -116,6 +123,20 @@ export function checkReviewForComplaint(reviewText: string): ComplaintCheckResul
     if (text.includes(phrase)) {
       return { flagged: true, reason: `matched phrase: "${phrase}"` };
     }
+  }
+
+  return { flagged: false, reason: null };
+}
+
+// Combines the keyword check with a low-rating check. Use this one from the
+// search pipeline; checkReviewForComplaint stays available on its own for
+// text-only checks.
+export function checkReview(reviewText: string, rating: number | null): ComplaintCheckResult {
+  const keywordResult = checkReviewForComplaint(reviewText);
+  if (keywordResult.flagged) return keywordResult;
+
+  if (rating !== null && rating <= LOW_RATING_THRESHOLD) {
+    return { flagged: true, reason: `low rating (${rating}/5)` };
   }
 
   return { flagged: false, reason: null };

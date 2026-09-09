@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchPlaces, getPlaceDetails } from "@/lib/googlePlaces";
 import { checkForInstagram } from "@/lib/instagramCheck";
-import { checkReviewForComplaint } from "@/lib/complaintDetection";
+import { checkReview } from "@/lib/complaintDetection";
 import { upsertCompany, clearReviewsForCompany, insertReview } from "@/lib/db";
 
 // Allow this route up to 60s — checking several companies' websites/reviews
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         let flaggedCount = 0;
         for (const review of details.reviews) {
           if (!review.text) continue;
-          const check = checkReviewForComplaint(review.text);
+          const check = checkReview(review.text, review.rating);
           if (check.flagged) flaggedCount++;
           await insertReview({
             company_id: companyId,
