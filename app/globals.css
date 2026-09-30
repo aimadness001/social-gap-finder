@@ -1,0 +1,185 @@
+:root {
+  --ink: #111a23;
+  --panel: #17222e;
+  --panel-2: #1d2a38;
+  --line: #283645;
+  --line-soft: #1f2b38;
+  --text: #ece7dd;
+  --muted: #8e9aa8;
+  --brass: #d6a84e;
+  --brass-soft: rgba(214, 168, 78, 0.14);
+  --brass-ink: #241a06;
+  --sage: #8fb8a8;
+  --sage-soft: rgba(143, 184, 168, 0.12);
+  --rust: #e58a70;
+  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --font-ui: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Instrument Serif", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  overflow-x: clip;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--brass); color: var(--brass-ink); }
+
+a { color: var(--brass); text-underline-offset: 3px; }
+a:hover { color: #e8c27a; }
+
+button, a, input, select, textarea { font-family: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* Header with faint blueprint grid — the one decorative moment */
+.sg-hero {
+  position: relative;
+  isolation: isolate;
+  padding: 56px 0 36px;
+  margin-bottom: 8px;
+}
+.sg-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background-image:
+    linear-gradient(rgba(143, 184, 168, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143, 184, 168, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(to bottom, black 20%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 20%, transparent 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+.sg-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(44px, 7vw, 72px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+}
+.sg-lede {
+  color: var(--muted);
+  max-width: 56ch;
+  margin: 0;
+  font-size: 16px;
+}
+
+.sg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sg-btn:disabled { opacity: 0.55; cursor: progress; }
+.sg-btn-primary { background: var(--brass); color: var(--brass-ink); border: 1px solid var(--brass); padding: 11px 22px; }
+.sg-btn-primary:hover:not(:disabled) { background: #e3b863; color: var(--brass-ink); }
+.sg-btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); padding: 10px 16px; font-weight: 500; }
+.sg-btn-ghost:hover:not(:disabled) { border-color: var(--muted); }
+.sg-btn-quiet { background: transparent; border: none; color: var(--muted); padding: 6px 2px; font-weight: 500; }
+.sg-btn-quiet:hover:not(:disabled) { color: var(--text); }
+.sg-chip {
+  display: inline-flex; align-items: center;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 11px; font-size: 12px; font-weight: 500;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.sg-chip:hover { border-color: var(--brass); color: var(--text); }
+
+.sg-field {
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  color: var(--text);
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+.sg-field::placeholder { color: #5f6b79; }
+.sg-field:hover { border-color: #3a4a5c; }
+.sg-field:focus { border-color: var(--brass); outline: none; }
+select.sg-field {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.sg-table-wrap { overflow-x: auto; }
+.sg-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 820px; }
+.sg-table th {
+  text-align: left; font-weight: 500; font-size: 12px; color: var(--muted);
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+}
+.sg-table td { padding: 18px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.sg-table tbody tr { transition: background 0.12s; }
+.sg-table tbody tr:hover { background: rgba(255, 255, 255, 0.018); }
+.sg-table tbody tr:last-child td { border-bottom: none; }
+.sg-num { font-variant-numeric: tabular-nums; }
+
+.sg-overlay { animation: sg-fade 0.15s ease-out; }
+.sg-modal { animation: sg-rise 0.2s ease-out; }
+@keyframes sg-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sg-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 640px) {
+  .sg-hero { padding-top: 36px; }
+  .sg-search-row > * { flex-basis: 100% !important; }
+}
+
+/* On phones, each company becomes its own stacked card instead of a wide table row */
+@media (max-width: 760px) {
+  .sg-table { min-width: 0; }
+  .sg-table thead { display: none; }
+  .sg-table, .sg-table tbody { display: block; }
+  .sg-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px 16px;
+    padding: 20px 18px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .sg-table tbody tr:last-child { border-bottom: none; }
+  .sg-table td { display: block; padding: 0; border: none; max-width: none !important; min-width: 0 !important; }
+  .sg-table td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .sg-table td:nth-child(4) { grid-column: 2; grid-row: 1; }
+  .sg-table td:nth-child(2),
+  .sg-table td:nth-child(3),
+  .sg-table td:nth-child(5),
+  .sg-table td:nth-child(6) { grid-column: 1 / -1; text-align: left !important; }
+  .sg-table td[colspan] { grid-column: 1 / -1; }
+}

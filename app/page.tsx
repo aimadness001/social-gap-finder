@@ -37,91 +37,56 @@ type BulkDraft = {
 };
 
 const styles = {
-  page: { maxWidth: 1000, margin: "0 auto", padding: "32px 20px" } as React.CSSProperties,
-  h1: { fontSize: 24, marginBottom: 4 } as React.CSSProperties,
-  subtitle: { color: "#9a9a9a", marginBottom: 28, fontSize: 14 } as React.CSSProperties,
+  page: { maxWidth: 1160, margin: "0 auto", padding: "0 20px 80px" } as React.CSSProperties,
   card: {
-    background: "#181b22",
-    border: "1px solid #262a33",
-    borderRadius: 10,
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius-lg)",
     padding: 20,
-    marginBottom: 24,
+    boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 20px 40px -24px rgba(0,0,0,0.6)",
   } as React.CSSProperties,
-  row: { display: "flex", gap: 12, flexWrap: "wrap" } as React.CSSProperties,
-  input: {
-    background: "#0f1115",
-    border: "1px solid #333844",
-    borderRadius: 6,
-    padding: "10px 12px",
-    color: "#e6e6e6",
-    fontSize: 14,
-    flex: 1,
-    minWidth: 180,
-  } as React.CSSProperties,
-  button: {
-    background: "#3b6fd6",
-    border: "none",
-    borderRadius: 6,
-    padding: "10px 18px",
-    color: "white",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  } as React.CSSProperties,
-  buttonSecondary: {
-    background: "transparent",
-    border: "1px solid #333844",
-    borderRadius: 6,
-    padding: "10px 18px",
-    color: "#e6e6e6",
-    fontSize: 14,
-    cursor: "pointer",
-  } as React.CSSProperties,
-  table: { width: "100%", borderCollapse: "collapse" as const, fontSize: 13 },
-  th: {
-    textAlign: "left" as const,
-    padding: "10px 8px",
-    borderBottom: "1px solid #262a33",
-    color: "#9a9a9a",
-    fontWeight: 600,
-  },
-  td: { padding: "10px 8px", borderBottom: "1px solid #1c1f26" },
   badgeGap: {
-    background: "#3b2020",
-    color: "#ff8a8a",
-    padding: "2px 8px",
-    borderRadius: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "3px 10px",
+    borderRadius: 999,
     fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    background: "var(--brass-soft)",
+    color: "var(--brass)",
+    border: "1px solid rgba(214,168,78,0.35)",
   } as React.CSSProperties,
   badgeOk: {
-    background: "#1e3320",
-    color: "#7fdb8a",
-    padding: "2px 8px",
-    borderRadius: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "3px 10px",
+    borderRadius: 999,
     fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    background: "var(--sage-soft)",
+    color: "var(--sage)",
+    border: "1px solid rgba(143,184,168,0.3)",
   } as React.CSSProperties,
   badgeUnknown: {
-    background: "#2a2a2a",
-    color: "#aaa",
-    padding: "2px 8px",
-    borderRadius: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "3px 10px",
+    borderRadius: 999,
     fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    color: "var(--muted)",
+    border: "1px dashed var(--line)",
   } as React.CSSProperties,
-  status: { fontSize: 13, color: "#9a9a9a", marginTop: 10 } as React.CSSProperties,
-  error: { fontSize: 13, color: "#ff8a8a", marginTop: 10 } as React.CSSProperties,
-  linkButton: {
-    background: "transparent",
-    border: "1px solid #333844",
-    borderRadius: 6,
-    padding: "4px 10px",
-    color: "#7aa2ff",
-    fontSize: 12,
-    cursor: "pointer",
-  } as React.CSSProperties,
+  status: { fontSize: 14, color: "var(--muted)", marginTop: 12 } as React.CSSProperties,
+  error: { fontSize: 14, color: "var(--rust)", marginTop: 12 } as React.CSSProperties,
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.6)",
+    background: "rgba(8,12,17,0.72)",
+    backdropFilter: "blur(4px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -129,32 +94,49 @@ const styles = {
     zIndex: 50,
   } as React.CSSProperties,
   modal: {
-    background: "#181b22",
-    border: "1px solid #262a33",
-    borderRadius: 10,
-    padding: 24,
-    maxWidth: 560,
+    background: "var(--panel)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius-lg)",
+    padding: 28,
+    maxWidth: 580,
     width: "100%",
-    maxHeight: "80vh",
+    maxHeight: "85vh",
     overflowY: "auto" as const,
+    boxShadow: "0 30px 60px -20px rgba(0,0,0,0.7)",
   } as React.CSSProperties,
   modalHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 20,
   } as React.CSSProperties,
+  modalTitle: {
+    fontFamily: "var(--font-display)",
+    fontWeight: 400,
+    fontSize: 26,
+    lineHeight: 1.15,
+  } as React.CSSProperties,
+  label: { fontSize: 13, color: "var(--muted)", fontWeight: 500 } as React.CSSProperties,
   textarea: {
     width: "100%",
     minHeight: 260,
-    background: "#0f1115",
-    border: "1px solid #333844",
-    borderRadius: 6,
-    padding: 12,
-    color: "#e6e6e6",
-    fontSize: 13,
+    background: "var(--ink)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius-sm)",
+    padding: 14,
+    color: "var(--text)",
+    fontSize: 14,
+    lineHeight: 1.6,
     fontFamily: "inherit",
-    boxSizing: "border-box" as const,
+    resize: "vertical" as const,
+  } as React.CSSProperties,
+  subCard: {
+    background: "var(--ink)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius-sm)",
+    padding: 16,
+    marginBottom: 14,
   } as React.CSSProperties,
 };
 
@@ -429,115 +411,171 @@ export default function Home() {
     setReviewsCompany(null);
   }
 
+  const leadCount = visibleCompanies.filter((c) => c.has_instagram === false).length;
+  const checkedCount = visibleCompanies.filter((c) => c.manual_instagram !== null).length;
+  const filtersActive = Boolean(cityFilter || websiteFilter || instagramFilter);
+
   return (
     <div style={styles.page}>
-      <h1 style={styles.h1}>Social Gap Finder</h1>
-      <p style={styles.subtitle}>
-        Finds construction/renovation companies with no Instagram or with customer reviews
-        complaining about their online presence — ranked as sales leads.
-      </p>
+      <header className="sg-hero">
+        <h1 className="sg-title">Social Gap Finder</h1>
+        <p className="sg-lede">
+          Find renovation and construction companies that are hard to find online, then reach
+          out with a pitch that fits.
+        </p>
+      </header>
 
-      <div style={styles.card}>
-        <div style={styles.row}>
+      <section style={styles.card} aria-label="Search">
+        <div className="sg-search-row" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input
-            style={styles.input}
-            placeholder="Search term, e.g. construction company"
+            className="sg-field"
+            style={{ flex: "2 1 240px" }}
+            placeholder="What to search, e.g. home renovation"
+            aria-label="Search term"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           <input
-            style={styles.input}
-            placeholder="City, e.g. Austin, TX"
+            className="sg-field"
+            style={{ flex: "1.4 1 200px" }}
+            placeholder="City, e.g. Mississauga, ON"
+            aria-label="City"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !loading) handleSearch();
+            }}
           />
-          <button style={styles.button} onClick={handleSearch} disabled={loading}>
-            {loading ? "Searching…" : "Run Search"}
+          <button className="sg-btn sg-btn-primary" onClick={handleSearch} disabled={loading}>
+            {loading ? "Searching…" : "Find companies"}
           </button>
         </div>
-        <div style={styles.row}>
-          <button style={styles.buttonSecondary} onClick={handleInitDb} disabled={initializing}>
-            {initializing ? "Setting up…" : "First time? Initialize database"}
-          </button>
-          <button style={styles.buttonSecondary} onClick={handleExport}>
-            Export CSV
-          </button>
-          <button style={styles.buttonSecondary} onClick={handleDraftAllVisible}>
-            Draft all outreach emails
-          </button>
-        </div>
+
         {status && <div style={styles.status}>{status}</div>}
         {error && <div style={styles.error}>{error}</div>}
+
+        <div
+          style={{
+            display: "flex",
+            gap: 18,
+            flexWrap: "wrap",
+            marginTop: 16,
+            paddingTop: 14,
+            borderTop: "1px solid var(--line-soft)",
+          }}
+        >
+          <button className="sg-btn sg-btn-quiet" onClick={handleDraftAllVisible}>
+            Draft emails for all leads
+          </button>
+          <button className="sg-btn sg-btn-quiet" onClick={handleExport}>
+            Export CSV
+          </button>
+          <button
+            className="sg-btn sg-btn-quiet"
+            style={{ marginLeft: "auto" }}
+            onClick={handleInitDb}
+            disabled={initializing}
+          >
+            {initializing ? "Setting up…" : "Set up database"}
+          </button>
+        </div>
+      </section>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          margin: "40px 0 16px",
+        }}
+      >
+        <div>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 34, margin: 0, lineHeight: 1.1 }}>
+            Your leads
+          </h2>
+          <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
+            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{leadCount}</span> without
+            Instagram out of {visibleCompanies.length} companies
+            {checkedCount > 0 && <>, {checkedCount} checked by you</>}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <select
+            className="sg-field"
+            aria-label="Filter by city"
+            value={cityFilter}
+            onChange={(e) => setCityFilter(e.target.value)}
+          >
+            <option value="">All cities ({companies.length})</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>
+                {city} ({companies.filter((c) => c.city === city).length})
+              </option>
+            ))}
+          </select>
+          <select
+            className="sg-field"
+            aria-label="Filter by Instagram"
+            value={instagramFilter}
+            onChange={(e) => setInstagramFilter(e.target.value)}
+          >
+            <option value="">Any Instagram</option>
+            <option value="none">No Instagram (leads)</option>
+            <option value="has">Has Instagram</option>
+            <option value="unknown">Not sure</option>
+          </select>
+          <select
+            className="sg-field"
+            aria-label="Filter by website"
+            value={websiteFilter}
+            onChange={(e) => setWebsiteFilter(e.target.value)}
+          >
+            <option value="">Any website</option>
+            <option value="has">Has website</option>
+            <option value="none">No website</option>
+          </select>
+        </div>
       </div>
 
-      <div style={{ ...styles.row, marginBottom: 12, alignItems: "center" }}>
-        <label style={{ fontSize: 13, color: "#9a9a9a" }}>City:</label>
-        <select
-          style={{ ...styles.input, flex: "none", minWidth: 180 }}
-          value={cityFilter}
-          onChange={(e) => setCityFilter(e.target.value)}
-        >
-          <option value="">All cities ({companies.length})</option>
-          {cities.map((city) => (
-            <option key={city} value={city}>
-              {city} ({companies.filter((c) => c.city === city).length})
-            </option>
-          ))}
-        </select>
-
-        <label style={{ fontSize: 13, color: "#9a9a9a" }}>Website:</label>
-        <select
-          style={{ ...styles.input, flex: "none", minWidth: 150 }}
-          value={websiteFilter}
-          onChange={(e) => setWebsiteFilter(e.target.value)}
-        >
-          <option value="">All</option>
-          <option value="has">Has website</option>
-          <option value="none">No website</option>
-        </select>
-
-        <label style={{ fontSize: 13, color: "#9a9a9a" }}>Instagram:</label>
-        <select
-          style={{ ...styles.input, flex: "none", minWidth: 150 }}
-          value={instagramFilter}
-          onChange={(e) => setInstagramFilter(e.target.value)}
-        >
-          <option value="">All</option>
-          <option value="has">Has Instagram</option>
-          <option value="none">No Instagram (leads)</option>
-          <option value="unknown">Unknown</option>
-        </select>
-      </div>
-
-      <div style={styles.card}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Company</th>
-              <th style={styles.th}>Instagram</th>
-              <th style={styles.th}>Flagged Reviews</th>
-              <th style={styles.th}>Score</th>
-              <th style={styles.th}>Website</th>
-              <th style={styles.th}>Phone</th>
-              <th style={styles.th}>Outreach</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleCompanies.length === 0 && (
+      <section style={{ ...styles.card, padding: 0, overflow: "hidden" }} aria-label="Companies">
+        <div className="sg-table-wrap">
+          <table className="sg-table">
+            <thead>
               <tr>
-                <td style={styles.td} colSpan={7}>
-                  {companies.length === 0
-                    ? "No companies yet. Run a search above."
-                    : "No companies match this city filter."}
-                </td>
+                <th>Company</th>
+                <th>Instagram</th>
+                <th>Reviews</th>
+                <th title="Higher = bigger social media gap = better lead">Score</th>
+                <th>Contact</th>
+                <th aria-label="Actions"></th>
               </tr>
-            )}
-            {visibleCompanies.map((c) => (
-              <tr key={c.id}>
-                <td style={styles.td}>{c.name}</td>
-                <td style={styles.td}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            </thead>
+            <tbody>
+              {visibleCompanies.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ padding: "56px 16px", textAlign: "center", color: "var(--muted)" }}>
+                    {companies.length === 0
+                      ? "No companies yet. Search a city above to find your first leads."
+                      : filtersActive
+                        ? "No companies match these filters. Try changing or clearing them."
+                        : "No companies to show."}
+                  </td>
+                </tr>
+              )}
+              {visibleCompanies.map((c) => (
+                <tr key={c.id}>
+                  <td style={{ maxWidth: 260 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{c.name}</div>
+                    {c.address && (
+                      <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 3 }}>{c.address}</div>
+                    )}
+                  </td>
+
+                  <td style={{ minWidth: 230 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       {c.has_instagram === false && (
                         <span style={styles.badgeGap}>
                           {c.manual_instagram === false
@@ -550,35 +588,33 @@ export default function Home() {
                       {c.has_instagram === true && <span style={styles.badgeOk}>Has Instagram</span>}
                       {c.has_instagram === null && <span style={styles.badgeUnknown}>Not sure</span>}
                       {c.manual_instagram !== null && (
-                        <span style={{ fontSize: 11, color: "#7fdb8a" }} title="You confirmed this yourself">
-                          ✔ checked by you
+                        <span style={{ fontSize: 12, color: "var(--sage)" }} title="You confirmed this yourself">
+                          ✓ Checked by you
                         </span>
                       )}
                     </div>
 
                     {c.instagram_url && c.has_instagram === true && (
-                      <a
-                        href={c.instagram_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#7aa2ff", fontSize: 12 }}
-                      >
-                        {c.instagram_url.replace(/^https:\/\/www\.instagram\.com\/?/, "@").replace(/\/$/, "") || "Instagram"}
+                      <div style={{ marginTop: 6, fontSize: 13 }}>
+                        <a href={c.instagram_url} target="_blank" rel="noreferrer">
+                          {c.instagram_url.replace(/^https:\/\/www\.instagram\.com\/?/, "@").replace(/\/$/, "") ||
+                            "Instagram"}
+                        </a>
                         {c.manual_instagram === null && (
-                          <span style={{ color: "#777" }}>
+                          <span style={{ color: "var(--muted)" }}>
                             {" "}
-                            (found on {c.instagram_source === "google" ? "Google" : "their website"})
+                            on {c.instagram_source === "google" ? "Google" : "their website"}
                           </span>
                         )}
-                      </a>
+                      </div>
                     )}
 
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                       <a
+                        className="sg-chip"
                         href={instagramLookupUrl(c)}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ ...styles.linkButton, textDecoration: "none" }}
                         title="Opens a Google search for their Instagram in a new tab"
                       >
                         Check Instagram
@@ -586,23 +622,23 @@ export default function Home() {
                       {c.manual_instagram === null ? (
                         <>
                           <button
-                            style={styles.linkButton}
+                            className="sg-chip"
                             onClick={() => handleSetInstagram(c, true)}
-                            title="I checked — they DO have Instagram"
+                            title="I checked: they DO have Instagram"
                           >
-                            Yes, has IG
+                            Has IG
                           </button>
                           <button
-                            style={styles.linkButton}
+                            className="sg-chip"
                             onClick={() => handleSetInstagram(c, false)}
-                            title="I checked — they do NOT have Instagram"
+                            title="I checked: they do NOT have Instagram"
                           >
-                            No, confirmed
+                            No IG
                           </button>
                         </>
                       ) : (
                         <button
-                          style={styles.linkButton}
+                          className="sg-chip"
                           onClick={() => handleSetInstagram(c, null)}
                           title="Remove your answer and go back to the automatic result"
                         >
@@ -610,49 +646,82 @@ export default function Home() {
                         </button>
                       )}
                     </div>
-                  </div>
-                </td>
-                <td style={styles.td}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span>{c.flagged_review_count}</span>
-                    {c.flagged_review_count > 0 && (
-                      <button style={styles.linkButton} onClick={() => handleViewReviews(c, false)}>
-                        view flagged
+                  </td>
+
+                  <td>
+                    <div className="sg-num" style={{ fontSize: 14 }}>
+                      {c.flagged_review_count > 0 ? (
+                        <span style={{ color: "var(--brass)", fontWeight: 600 }}>
+                          {c.flagged_review_count} flagged
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--muted)" }}>None flagged</span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                      {c.flagged_review_count > 0 && (
+                        <button className="sg-btn sg-btn-quiet" style={{ fontSize: 13 }} onClick={() => handleViewReviews(c, false)}>
+                          View flagged
+                        </button>
+                      )}
+                      <button className="sg-btn sg-btn-quiet" style={{ fontSize: 13 }} onClick={() => handleViewReviews(c, true)}>
+                        View all
                       </button>
+                    </div>
+                  </td>
+
+                  <td>
+                    <span
+                      className="sg-num"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 34,
+                        height: 34,
+                        borderRadius: 999,
+                        fontWeight: 700,
+                        fontSize: 15,
+                        background: c.social_gap_score > 0 ? "var(--brass-soft)" : "transparent",
+                        color: c.social_gap_score > 0 ? "var(--brass)" : "var(--muted)",
+                        border: c.social_gap_score > 0 ? "1px solid rgba(214,168,78,0.35)" : "1px solid var(--line)",
+                      }}
+                    >
+                      {c.social_gap_score}
+                    </span>
+                  </td>
+
+                  <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                    {c.website ? (
+                      <a href={c.website} target="_blank" rel="noreferrer">
+                        Visit website
+                      </a>
+                    ) : (
+                      <span style={{ color: "var(--brass)" }}>No website</span>
                     )}
-                    <button style={styles.linkButton} onClick={() => handleViewReviews(c, true)}>
-                      view all
+                    <div className="sg-num" style={{ color: "var(--muted)", marginTop: 4 }}>
+                      {c.phone || "No phone listed"}
+                    </div>
+                  </td>
+
+                  <td style={{ textAlign: "right" }}>
+                    <button className="sg-btn sg-btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => handleDraftEmail(c)}>
+                      Draft email
                     </button>
-                  </div>
-                </td>
-                <td style={styles.td}>{c.social_gap_score}</td>
-                <td style={styles.td}>
-                  {c.website ? (
-                    <a href={c.website} target="_blank" rel="noreferrer" style={{ color: "#7aa2ff" }}>
-                      site
-                    </a>
-                  ) : (
-                    <span style={styles.badgeGap}>No website</span>
-                  )}
-                </td>
-                <td style={styles.td}>{c.phone || "—"}</td>
-                <td style={styles.td}>
-                  <button style={styles.linkButton} onClick={() => handleDraftEmail(c)}>
-                    Draft email
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {draftCompany && (
-        <div style={styles.overlay} onClick={closeDraftModal}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className="sg-overlay" style={styles.overlay} onClick={closeDraftModal}>
+          <div className="sg-modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <strong>Outreach draft — {draftCompany.name}</strong>
-              <button style={styles.buttonSecondary} onClick={closeDraftModal}>
+              <div style={styles.modalTitle}>Outreach draft — {draftCompany.name}</div>
+              <button className="sg-btn sg-btn-ghost" onClick={closeDraftModal}>
                 Close
               </button>
             </div>
@@ -662,27 +731,27 @@ export default function Home() {
 
             {!draftLoading && !draftError && (
               <>
-                <label style={{ fontSize: 12, color: "#9a9a9a" }}>Subject</label>
+                <label style={styles.label}>Subject</label>
                 <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 16 }}>
-                  <input style={styles.input} value={draftSubject} readOnly />
-                  <button style={styles.buttonSecondary} onClick={() => handleCopy(draftSubject, "Subject")}>
+                  <input className="sg-field" style={{ flex: 1 }} value={draftSubject} readOnly />
+                  <button className="sg-btn sg-btn-ghost" onClick={() => handleCopy(draftSubject, "Subject")}>
                     Copy
                   </button>
                 </div>
 
-                <label style={{ fontSize: 12, color: "#9a9a9a" }}>Body</label>
+                <label style={styles.label}>Body</label>
                 <textarea style={{ ...styles.textarea, marginTop: 4 }} value={draftBody} readOnly />
                 <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button style={styles.buttonSecondary} onClick={() => handleCopy(draftBody, "Body")}>
+                  <button className="sg-btn sg-btn-ghost" onClick={() => handleCopy(draftBody, "Body")}>
                     Copy body
                   </button>
-                  <button style={styles.button} onClick={handleOpenInEmailApp}>
+                  <button className="sg-btn sg-btn-primary" onClick={handleOpenInEmailApp}>
                     Open in email app
                   </button>
                 </div>
 
                 {copyStatus && <div style={styles.status}>{copyStatus}</div>}
-                <p style={{ fontSize: 12, color: "#9a9a9a", marginTop: 12 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12 }}>
                   "Open in email app" launches your default email program (Outlook, Mail, etc.)
                   with the subject and body already filled in — just add the recipient's address
                   and hit send. This is a starting point — personalize it before sending, and fill
@@ -695,13 +764,13 @@ export default function Home() {
       )}
 
       {reviewsCompany && (
-        <div style={styles.overlay} onClick={closeReviewsModal}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className="sg-overlay" style={styles.overlay} onClick={closeReviewsModal}>
+          <div className="sg-modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <strong>
+              <div style={styles.modalTitle}>
                 {reviewsShowingAll ? "All reviews" : "Flagged reviews"} — {reviewsCompany.name}
-              </strong>
-              <button style={styles.buttonSecondary} onClick={closeReviewsModal}>
+              </div>
+              <button className="sg-btn sg-btn-ghost" onClick={closeReviewsModal}>
                 Close
               </button>
             </div>
@@ -723,20 +792,17 @@ export default function Home() {
                 <div
                   key={r.id}
                   style={{
-                    background: "#0f1115",
-                    border: r.flagged_social_complaint ? "1px solid #7a3030" : "1px solid #333844",
-                    borderRadius: 6,
-                    padding: 12,
-                    marginBottom: 12,
+                    ...styles.subCard,
+                    borderColor: r.flagged_social_complaint ? "rgba(214,168,78,0.45)" : "var(--line)",
                   }}
                 >
-                  <div style={{ fontSize: 12, color: "#9a9a9a", marginBottom: 6 }}>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
                     {r.rating !== null && <span>Rating: {r.rating}/5</span>}
-                    {r.review_date && <span> · {r.review_date}</span>}
+                    {r.review_date && <span style={{ marginLeft: 12 }}>{r.review_date}</span>}
                   </div>
-                  <div style={{ fontSize: 13, marginBottom: 6 }}>{r.review_text}</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 6 }}>{r.review_text}</div>
                   {r.flag_reason && (
-                    <div style={{ fontSize: 11, color: "#ff8a8a" }}>Flagged: {r.flag_reason}</div>
+                    <div style={{ fontSize: 11, color: "var(--brass)" }}>Flagged: {r.flag_reason}</div>
                   )}
                 </div>
               ))}
@@ -745,11 +811,11 @@ export default function Home() {
       )}
 
       {bulkOpen && (
-        <div style={styles.overlay} onClick={closeBulkModal}>
-          <div style={{ ...styles.modal, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
+        <div className="sg-overlay" style={styles.overlay} onClick={closeBulkModal}>
+          <div className="sg-modal" style={{ ...styles.modal, maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <strong>Draft outreach emails — all leads in current view</strong>
-              <button style={styles.buttonSecondary} onClick={closeBulkModal}>
+              <div style={styles.modalTitle}>Draft outreach emails — all leads in current view</div>
+              <button className="sg-btn sg-btn-ghost" onClick={closeBulkModal}>
                 Close
               </button>
             </div>
@@ -761,13 +827,7 @@ export default function Home() {
               bulkDrafts.map((d) => (
                 <div
                   key={d.companyId}
-                  style={{
-                    background: "#0f1115",
-                    border: "1px solid #333844",
-                    borderRadius: 6,
-                    padding: 12,
-                    marginBottom: 16,
-                  }}
+                  style={styles.subCard}
                 >
                   <div style={{ fontWeight: 600, marginBottom: 8 }}>{d.companyName}</div>
 
@@ -775,7 +835,7 @@ export default function Home() {
                     <div style={styles.error}>Couldn't generate a draft: {d.error}</div>
                   ) : (
                     <>
-                      <div style={{ fontSize: 12, color: "#9a9a9a", marginBottom: 4 }}>
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>
                         Subject: {d.subject}
                       </div>
                       <textarea
@@ -785,18 +845,18 @@ export default function Home() {
                       />
                       <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <button
-                          style={styles.buttonSecondary}
+                          className="sg-btn sg-btn-ghost"
                           onClick={() => handleCopy(d.subject, `${d.companyName} subject`)}
                         >
                           Copy subject
                         </button>
                         <button
-                          style={styles.buttonSecondary}
+                          className="sg-btn sg-btn-ghost"
                           onClick={() => handleCopy(d.body, `${d.companyName} body`)}
                         >
                           Copy body
                         </button>
-                        <button style={styles.button} onClick={() => openInEmailApp(d.subject, d.body)}>
+                        <button className="sg-btn sg-btn-primary" onClick={() => openInEmailApp(d.subject, d.body)}>
                           Open in email app
                         </button>
                       </div>
@@ -808,7 +868,7 @@ export default function Home() {
             {copyStatus && <div style={styles.status}>{copyStatus}</div>}
 
             {!bulkLoading && bulkDrafts.length > 0 && (
-              <p style={{ fontSize: 12, color: "#9a9a9a", marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
                 Only companies with a social gap score above 0 in your current filtered view are
                 included. Personalize each one before sending, and fill in your name/contact info.
               </p>
