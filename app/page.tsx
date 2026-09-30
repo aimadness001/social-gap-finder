@@ -23,6 +23,14 @@ type Review = {
   flagged_social_complaint?: boolean;
 };
 
+type BulkDraft = {
+  companyId: number;
+  companyName: string;
+  subject: string;
+  body: string;
+  error?: string;
+};
+
 const styles = {
   page: { maxWidth: 1000, margin: "0 auto", padding: "32px 20px" } as React.CSSProperties,
   h1: { fontSize: 24, marginBottom: 4 } as React.CSSProperties,
@@ -167,6 +175,10 @@ export default function Home() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [reviewsShowingAll, setReviewsShowingAll] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDrafts, setBulkDrafts] = useState<BulkDraft[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const loadCompanies = useCallback(async (city?: string) => {
     try {
@@ -275,6 +287,75 @@ export default function Home() {
     setDraftCompany(null);
   }
 
+  function openInEmailApp(subject: string, body: string) {
+    // Encoded by hand (not URLSearchParams) because mailto links need %20 for
+    // spaces — URLSearchParams uses "+" instead, which some desktop mail
+    // clients (e.g. Outlook) leave as a literal plus sign instead of a space.
+    const subjectParam = encodeURIComponent(subject);
+    const bodyParam = encodeURIComponent(body);
+    // Leading "?" with no address before it — opens a new blank-recipient
+    // message with subject/body prefilled, ready for you to add the address
+    // and hit send yourself.
+    window.location.href = `mailto:?subject=${subjectParam}&body=${bodyParam}`;
+  }
+
+  function handleOpenInEmailApp() {
+    openInEmailApp(draftSubject, draftBody);
+  }
+
+  async function handleDraftAllVisible() {
+    const leads = visibleCompanies.filter((c) => c.social_gap_score > 0);
+
+    if (leads.length === 0) {
+      setBulkError(
+        "No companies with a social gap score above 0 in the current view — nothing to draft."
+      );
+      setBulkOpen(true);
+      setBulkDrafts([]);
+      return;
+    }
+
+    setBulkOpen(true);
+    setBulkLoading(true);
+    setBulkError(null);
+    setBulkDrafts([]);
+
+    try {
+      const results = await Promise.all(
+        leads.map(async (c): Promise<BulkDraft> => {
+          try {
+            const res = await fetch(`/api/companies/${c.id}/draft`);
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error);
+            return {
+              companyId: c.id,
+              companyName: c.name,
+              subject: data.draft.subject,
+              body: data.draft.body,
+            };
+          } catch (err: any) {
+            return {
+              companyId: c.id,
+              companyName: c.name,
+              subject: "",
+              body: "",
+              error: err.message,
+            };
+          }
+        })
+      );
+      setBulkDrafts(results);
+    } catch (err: any) {
+      setBulkError(err.message);
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  function closeBulkModal() {
+    setBulkOpen(false);
+  }
+
   async function handleCopy(text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -339,6 +420,9 @@ export default function Home() {
           </button>
           <button style={styles.buttonSecondary} onClick={handleExport}>
             Export CSV
+          </button>
+          <button style={styles.buttonSecondary} onClick={handleDraftAllVisible}>
+            Draft all outreach emails
           </button>
         </div>
         {status && <div style={styles.status}>{status}</div>}
@@ -475,16 +559,21 @@ export default function Home() {
 
                 <label style={{ fontSize: 12, color: "#9a9a9a" }}>Body</label>
                 <textarea style={{ ...styles.textarea, marginTop: 4 }} value={draftBody} readOnly />
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button style={styles.buttonSecondary} onClick={() => handleCopy(draftBody, "Body")}>
                     Copy body
+                  </button>
+                  <button style={styles.button} onClick={handleOpenInEmailApp}>
+                    Open in email app
                   </button>
                 </div>
 
                 {copyStatus && <div style={styles.status}>{copyStatus}</div>}
                 <p style={{ fontSize: 12, color: "#9a9a9a", marginTop: 12 }}>
-                  This is a starting point — personalize it before sending. Fill in your name and
-                  contact info at the bottom.
+                  "Open in email app" launches your default email program (Outlook, Mail, etc.)
+                  with the subject and body already filled in — just add the recipient's address
+                  and hit send. This is a starting point — personalize it before sending, and fill
+                  in your name and contact info at the bottom.
                 </p>
               </>
             )}
@@ -538,6 +627,79 @@ export default function Home() {
                   )}
                 </div>
               ))}
+          </div>
+        </div>
+      )}
+
+      {bulkOpen && (
+        <div style={styles.overlay} onClick={closeBulkModal}>
+          <div style={{ ...styles.modal, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <strong>Draft outreach emails — all leads in current view</strong>
+              <button style={styles.buttonSecondary} onClick={closeBulkModal}>
+                Close
+              </button>
+            </div>
+
+            {bulkLoading && <div style={styles.status}>Generating drafts for every lead…</div>}
+            {bulkError && <div style={styles.error}>{bulkError}</div>}
+
+            {!bulkLoading &&
+              bulkDrafts.map((d) => (
+                <div
+                  key={d.companyId}
+                  style={{
+                    background: "#0f1115",
+                    border: "1px solid #333844",
+                    borderRadius: 6,
+                    padding: 12,
+                    marginBottom: 16,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{d.companyName}</div>
+
+                  {d.error ? (
+                    <div style={styles.error}>Couldn't generate a draft: {d.error}</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: "#9a9a9a", marginBottom: 4 }}>
+                        Subject: {d.subject}
+                      </div>
+                      <textarea
+                        style={{ ...styles.textarea, minHeight: 140 }}
+                        value={d.body}
+                        readOnly
+                      />
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          style={styles.buttonSecondary}
+                          onClick={() => handleCopy(d.subject, `${d.companyName} subject`)}
+                        >
+                          Copy subject
+                        </button>
+                        <button
+                          style={styles.buttonSecondary}
+                          onClick={() => handleCopy(d.body, `${d.companyName} body`)}
+                        >
+                          Copy body
+                        </button>
+                        <button style={styles.button} onClick={() => openInEmailApp(d.subject, d.body)}>
+                          Open in email app
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+
+            {copyStatus && <div style={styles.status}>{copyStatus}</div>}
+
+            {!bulkLoading && bulkDrafts.length > 0 && (
+              <p style={{ fontSize: 12, color: "#9a9a9a", marginTop: 4 }}>
+                Only companies with a social gap score above 0 in your current filtered view are
+                included. Personalize each one before sending, and fill in your name/contact info.
+              </p>
+            )}
           </div>
         </div>
       )}

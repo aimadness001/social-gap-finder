@@ -13,6 +13,14 @@ export const maxDuration = 60;
 // to pull more.
 const MAX_PLACES_PER_SEARCH = 15;
 
+// Belt-and-suspenders time budget: the Instagram check can now hit up to 4
+// pages per company (homepage + 3 subpaths), so a handful of slow/unresponsive
+// sites in one run could otherwise stack up and risk hitting Vercel's hard
+// maxDuration cutoff (which kills the function with no response at all). We
+// stop picking up new companies once we're past this budget and return
+// partial results gracefully instead.
+const TIME_BUDGET_MS = 45000;
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -27,8 +35,15 @@ export async function POST(req: Request) {
     const toProcess = places.slice(0, MAX_PLACES_PER_SEARCH);
 
     const results = [];
+    const startTime = Date.now();
+    let stoppedForTime = false;
 
     for (const place of toProcess) {
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        stoppedForTime = true;
+        break;
+      }
+
       try {
         const details = await getPlaceDetails(place.placeId);
 
@@ -80,8 +95,9 @@ export async function POST(req: Request) {
       city: location,
       totalFound: places.length,
       processed: results.length,
-      note:
-        places.length > MAX_PLACES_PER_SEARCH
+      note: stoppedForTime
+        ? `Stopped early after ${results.length} companies to stay within the time limit (some websites were slow to respond). Re-run the same search to pick up the rest.`
+        : places.length > MAX_PLACES_PER_SEARCH
           ? `Google returned ${places.length} results; only the first ${MAX_PLACES_PER_SEARCH} were processed this run to stay within the time limit. Re-run with a more specific query to reach others.`
           : undefined,
       results,
