@@ -175,6 +175,14 @@ export default function Home() {
   const [cityFilter, setCityFilter] = useState(""); // "" = show all cities
   const [websiteFilter, setWebsiteFilter] = useState(""); // "" | "has" | "none"
   const [tab, setTab] = useState<Tab>("check");
+  const [toast, setToast] = useState<{ id: number; message: string; undo: () => void } | null>(null);
+
+  // Hide the "moved to…" message after a few seconds.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
   const [draftCompany, setDraftCompany] = useState<Company | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
@@ -295,6 +303,40 @@ export default function Home() {
       setError(`Couldn't save "contacted": ${err.message}`);
       await loadCompanies();
     }
+  }
+
+  // Where a company ends up after a change, in plain words for the message.
+  function destinationLabel(c: Company): string {
+    if (inTab(c, "contacted")) return "Contacted";
+    if (inTab(c, "leads")) return "Leads";
+    if (inTab(c, "check")) return "To check";
+    return "All (has Instagram)";
+  }
+
+  // If a change moves the company out of the tab you're looking at,
+  // show a message saying where it went, with an Undo button.
+  function announceMove(before: Company, after: Company, undo: () => void) {
+    if (inTab(after, tab)) return;
+    setToast({
+      id: Date.now(),
+      message: `${before.name} moved to ${destinationLabel(after)}`,
+      undo,
+    });
+  }
+
+  function markInstagram(c: Company, value: boolean | null) {
+    const previous = c.manual_instagram;
+    const finalAnswer = value === null ? c.auto_has_instagram : value;
+    announceMove(c, { ...c, manual_instagram: value, has_instagram: finalAnswer }, () =>
+      handleSetInstagram({ ...c, manual_instagram: value, has_instagram: finalAnswer }, previous)
+    );
+    handleSetInstagram(c, value);
+  }
+
+  function markContacted(c: Company, contacted: boolean) {
+    const after = { ...c, contacted_at: contacted ? new Date().toISOString() : null };
+    announceMove(c, after, () => handleSetContacted(after, !contacted));
+    handleSetContacted(c, contacted);
   }
 
   function instagramLookupUrl(c: Company) {
@@ -678,14 +720,14 @@ export default function Home() {
                         <>
                           <button
                             className="sg-chip"
-                            onClick={() => handleSetInstagram(c, true)}
+                            onClick={() => markInstagram(c, true)}
                             title="I checked: they DO have Instagram"
                           >
                             Has IG
                           </button>
                           <button
                             className="sg-chip"
-                            onClick={() => handleSetInstagram(c, false)}
+                            onClick={() => markInstagram(c, false)}
                             title="I checked: they do NOT have Instagram"
                           >
                             No IG
@@ -694,7 +736,7 @@ export default function Home() {
                       ) : (
                         <button
                           className="sg-chip"
-                          onClick={() => handleSetInstagram(c, null)}
+                          onClick={() => markInstagram(c, null)}
                           title="Remove your answer and go back to the automatic result"
                         >
                           Undo
@@ -770,7 +812,7 @@ export default function Home() {
                           <button
                             className="sg-btn sg-btn-quiet"
                             style={{ fontSize: 12, marginLeft: 8 }}
-                            onClick={() => handleSetContacted(c, false)}
+                            onClick={() => markContacted(c, false)}
                             title="Move back out of Contacted"
                           >
                             Undo
@@ -780,7 +822,7 @@ export default function Home() {
                         <button
                           className="sg-btn sg-btn-quiet"
                           style={{ fontSize: 13 }}
-                          onClick={() => handleSetContacted(c, true)}
+                          onClick={() => markContacted(c, true)}
                         >
                           Mark contacted
                         </button>
@@ -793,6 +835,29 @@ export default function Home() {
           </table>
         </div>
       </section>
+
+      {toast && (
+        <div className="sg-toast" role="status" key={toast.id}>
+          <span>{toast.message}</span>
+          <button
+            className="sg-btn sg-btn-quiet"
+            style={{ color: "var(--brass)", fontWeight: 600 }}
+            onClick={() => {
+              toast.undo();
+              setToast(null);
+            }}
+          >
+            Undo
+          </button>
+          <button
+            className="sg-btn sg-btn-quiet"
+            aria-label="Dismiss"
+            onClick={() => setToast(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {draftCompany && (
         <div className="sg-overlay" style={styles.overlay} onClick={closeDraftModal}>
