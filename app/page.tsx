@@ -43,7 +43,7 @@ const styles = {
     border: "1px solid var(--line)",
     borderRadius: "var(--radius-lg)",
     padding: 20,
-    boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 20px 40px -24px rgba(0,0,0,0.6)",
+    boxShadow: "var(--shadow-card)",
   } as React.CSSProperties,
   badgeGap: {
     display: "inline-flex",
@@ -55,7 +55,7 @@ const styles = {
     whiteSpace: "nowrap",
     background: "var(--brass-soft)",
     color: "var(--brass)",
-    border: "1px solid rgba(214,168,78,0.35)",
+    border: "1px solid var(--brass-border)",
   } as React.CSSProperties,
   badgeOk: {
     display: "inline-flex",
@@ -67,7 +67,7 @@ const styles = {
     whiteSpace: "nowrap",
     background: "var(--sage-soft)",
     color: "var(--sage)",
-    border: "1px solid rgba(143,184,168,0.3)",
+    border: "1px solid var(--sage-border)",
   } as React.CSSProperties,
   badgeUnknown: {
     display: "inline-flex",
@@ -85,7 +85,7 @@ const styles = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(8,12,17,0.72)",
+    background: "var(--overlay)",
     backdropFilter: "blur(4px)",
     display: "flex",
     alignItems: "center",
@@ -102,7 +102,7 @@ const styles = {
     width: "100%",
     maxHeight: "85vh",
     overflowY: "auto" as const,
-    boxShadow: "0 30px 60px -20px rgba(0,0,0,0.7)",
+    boxShadow: "var(--shadow-modal)",
   } as React.CSSProperties,
   modalHeader: {
     display: "flex",
@@ -121,7 +121,7 @@ const styles = {
   textarea: {
     width: "100%",
     minHeight: 260,
-    background: "var(--ink)",
+    background: "var(--field-bg)",
     border: "1px solid var(--line)",
     borderRadius: "var(--radius-sm)",
     padding: 14,
@@ -132,7 +132,7 @@ const styles = {
     resize: "vertical" as const,
   } as React.CSSProperties,
   subCard: {
-    background: "var(--ink)",
+    background: "var(--field-bg)",
     border: "1px solid var(--line)",
     borderRadius: "var(--radius-sm)",
     padding: 16,
@@ -684,7 +684,7 @@ export default function Home() {
                         fontSize: 15,
                         background: c.social_gap_score > 0 ? "var(--brass-soft)" : "transparent",
                         color: c.social_gap_score > 0 ? "var(--brass)" : "var(--muted)",
-                        border: c.social_gap_score > 0 ? "1px solid rgba(214,168,78,0.35)" : "1px solid var(--line)",
+                        border: c.social_gap_score > 0 ? "1px solid var(--brass-border)" : "1px solid var(--line)",
                       }}
                     >
                       {c.social_gap_score}
@@ -793,7 +793,7 @@ export default function Home() {
                   key={r.id}
                   style={{
                     ...styles.subCard,
-                    borderColor: r.flagged_social_complaint ? "rgba(214,168,78,0.45)" : "var(--line)",
+                    borderColor: r.flagged_social_complaint ? "var(--brass)" : "var(--line)",
                   }}
                 >
                   <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>

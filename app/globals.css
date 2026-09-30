@@ -12,6 +12,17 @@
   --sage: #8fb8a8;
   --sage-soft: rgba(143, 184, 168, 0.12);
   --rust: #e58a70;
+  --brass-hover: #e3b863;
+  --brass-border: rgba(214, 168, 78, 0.35);
+  --sage-border: rgba(143, 184, 168, 0.3);
+  --field-bg: #111a23;
+  --field-hover: #3a4a5c;
+  --placeholder: #5f6b79;
+  --row-hover: rgba(255, 255, 255, 0.018);
+  --grid: rgba(143, 184, 168, 0.07);
+  --overlay: rgba(8, 12, 17, 0.72);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 30px 60px -20px rgba(0, 0, 0, 0.7);
   --radius-lg: 14px;
   --radius-sm: 8px;
   --font-ui: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -34,7 +45,7 @@ html, body {
 ::selection { background: var(--brass); color: var(--brass-ink); }
 
 a { color: var(--brass); text-underline-offset: 3px; }
-a:hover { color: #e8c27a; }
+a:hover { color: var(--brass-hover); }
 
 button, a, input, select, textarea { font-family: inherit; }
 
@@ -59,8 +70,8 @@ button, a, input, select, textarea { font-family: inherit; }
   width: 100vw;
   transform: translateX(-50%);
   background-image:
-    linear-gradient(rgba(143, 184, 168, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(143, 184, 168, 0.07) 1px, transparent 1px);
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: linear-gradient(to bottom, black 20%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 20%, transparent 100%);
@@ -97,7 +108,7 @@ button, a, input, select, textarea { font-family: inherit; }
 }
 .sg-btn:disabled { opacity: 0.55; cursor: progress; }
 .sg-btn-primary { background: var(--brass); color: var(--brass-ink); border: 1px solid var(--brass); padding: 11px 22px; }
-.sg-btn-primary:hover:not(:disabled) { background: #e3b863; color: var(--brass-ink); }
+.sg-btn-primary:hover:not(:disabled) { background: var(--brass-hover); color: var(--brass-ink); }
 .sg-btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); padding: 10px 16px; font-weight: 500; }
 .sg-btn-ghost:hover:not(:disabled) { border-color: var(--muted); }
 .sg-btn-quiet { background: transparent; border: none; color: var(--muted); padding: 6px 2px; font-weight: 500; }
@@ -113,7 +124,7 @@ button, a, input, select, textarea { font-family: inherit; }
 .sg-chip:hover { border-color: var(--brass); color: var(--text); }
 
 .sg-field {
-  background: var(--ink);
+  background: var(--field-bg);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 11px 14px;
@@ -121,8 +132,8 @@ button, a, input, select, textarea { font-family: inherit; }
   font-size: 14px;
   transition: border-color 0.15s;
 }
-.sg-field::placeholder { color: #5f6b79; }
-.sg-field:hover { border-color: #3a4a5c; }
+.sg-field::placeholder { color: var(--placeholder); }
+.sg-field:hover { border-color: var(--field-hover); }
 .sg-field:focus { border-color: var(--brass); outline: none; }
 select.sg-field {
   appearance: none;
@@ -143,7 +154,7 @@ select.sg-field {
 }
 .sg-table td { padding: 18px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 .sg-table tbody tr { transition: background 0.12s; }
-.sg-table tbody tr:hover { background: rgba(255, 255, 255, 0.018); }
+.sg-table tbody tr:hover { background: var(--row-hover); }
 .sg-table tbody tr:last-child td { border-bottom: none; }
 .sg-num { font-variant-numeric: tabular-nums; }
 
