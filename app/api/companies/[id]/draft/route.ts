@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql } from "@vercel/postgres";
-import { getFlaggedReviewsForCompany, Company } from "@/lib/db";
+import { getFlaggedReviewsForCompany, ensureInstagramColumns, Company } from "@/lib/db";
 import { generateOutreachEmail } from "@/lib/emailTemplate";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -10,6 +10,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ ok: false, error: "Invalid company id" }, { status: 400 });
     }
 
+    await ensureInstagramColumns();
     const companyResult = await sql<Company>`SELECT * FROM companies WHERE id = ${companyId};`;
     const company = companyResult.rows[0];
     if (!company) {
@@ -20,7 +21,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const draft = generateOutreachEmail({
       name: company.name,
-      hasInstagram: company.has_instagram,
+      // Your manual answer wins over the automatic check.
+      hasInstagram: company.manual_instagram ?? company.has_instagram,
       website: company.website,
       flaggedReviews: flaggedReviews.map((r) => ({
         review_text: r.review_text,

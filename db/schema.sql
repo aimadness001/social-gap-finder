@@ -28,3 +28,10 @@ CREATE TABLE IF NOT EXISTS reviews (
 
 CREATE INDEX IF NOT EXISTS idx_companies_city ON companies(city);
 CREATE INDEX IF NOT EXISTS idx_reviews_company_id ON reviews(company_id);
+
+-- Added Sept 2026: Google Instagram search + manual "checked by you" answers.
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS instagram_url TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS instagram_source TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS google_checked BOOLEAN DEFAULT FALSE;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS manual_instagram BOOLEAN;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS manual_checked_at TIMESTAMP;

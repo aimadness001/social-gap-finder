@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchPlaces, getPlaceDetails } from "@/lib/googlePlaces";
 import { checkForInstagram } from "@/lib/instagramCheck";
+import { searchInstagramOnGoogle } from "@/lib/instagramSearch";
 import { checkReview } from "@/lib/complaintDetection";
 import { upsertCompany, clearReviewsForCompany, insertReview } from "@/lib/db";
 
@@ -47,9 +48,33 @@ export async function POST(req: Request) {
       try {
         const details = await getPlaceDetails(place.placeId);
 
-        // No website at all = automatic "no discoverable Instagram" flag.
-        // Website present but unreachable/blocked = unknown, don't penalize.
-        const hasInstagram = details.website ? await checkForInstagram(details.website) : false;
+        // Step 1: check their website for an Instagram link.
+        // string = link found, false = no link, null = site unreachable.
+        const websiteResult = details.website ? await checkForInstagram(details.website) : false;
+
+        let hasInstagram: boolean | null = websiteResult === null ? null : Boolean(websiteResult);
+        let instagramUrl: string | null = typeof websiteResult === "string" ? websiteResult : null;
+        let instagramSource: "website" | "google" | null = instagramUrl ? "website" : null;
+        let googleChecked = false;
+
+        // Step 2: no link on the website (or no website / site down) — search
+        // Google for their Instagram account. Skipped if SERPER_API_KEY isn't set.
+        if (!instagramUrl) {
+          const google = await searchInstagramOnGoogle(details.name, location);
+          if (google.checked) {
+            googleChecked = true;
+            if (google.url) {
+              hasInstagram = true;
+              instagramUrl = google.url;
+              instagramSource = "google";
+            } else if (details.website && websiteResult === null) {
+              // Website couldn't be read and Google found nothing — still not sure.
+              hasInstagram = null;
+            } else {
+              hasInstagram = false;
+            }
+          }
+        }
 
         const companyId = await upsertCompany({
           place_id: details.placeId,
@@ -59,6 +84,9 @@ export async function POST(req: Request) {
           address: details.address,
           city: location,
           has_instagram: hasInstagram,
+          instagram_url: instagramUrl,
+          instagram_source: instagramSource,
+          google_checked: googleChecked,
         });
 
         await clearReviewsForCompany(companyId);
@@ -82,6 +110,7 @@ export async function POST(req: Request) {
         results.push({
           name: details.name,
           hasInstagram,
+          instagramUrl,
           flaggedReviewCount: flaggedCount,
         });
       } catch (err: any) {

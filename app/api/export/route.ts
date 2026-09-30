@@ -23,6 +23,8 @@ export async function GET(req: Request) {
       "Address",
       "City",
       "Has Instagram",
+      "Instagram Link",
+      "Checked By You",
       "Flagged Review Count",
       "Social Gap Score",
     ];
@@ -35,6 +37,8 @@ export async function GET(req: Request) {
         c.address,
         c.city,
         c.has_instagram === null ? "unknown" : c.has_instagram,
+        c.instagram_url,
+        c.manual_instagram === null ? "" : "yes",
         c.flagged_review_count,
         c.social_gap_score,
       ]

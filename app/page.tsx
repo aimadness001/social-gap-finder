@@ -9,7 +9,12 @@ type Company = {
   website: string | null;
   address: string | null;
   city: string;
-  has_instagram: boolean | null;
+  has_instagram: boolean | null; // final answer (your answer wins over the automatic one)
+  auto_has_instagram: boolean | null;
+  instagram_url: string | null;
+  instagram_source: "website" | "google" | null;
+  google_checked: boolean;
+  manual_instagram: boolean | null;
   flagged_review_count: number;
   social_gap_score: number;
 };
@@ -238,6 +243,42 @@ export default function Home() {
     }
   }
 
+  async function handleSetInstagram(company: Company, value: boolean | null) {
+    setError(null);
+    // Update the screen right away, then save.
+    setCompanies((prev) =>
+      prev.map((c) => {
+        if (c.id !== company.id) return c;
+        const finalAnswer = value === null ? c.auto_has_instagram : value;
+        const gapPoints = (v: boolean | null) => (v === false ? 2 : 0);
+        return {
+          ...c,
+          manual_instagram: value,
+          has_instagram: finalAnswer,
+          social_gap_score: c.social_gap_score - gapPoints(c.has_instagram) + gapPoints(finalAnswer),
+        };
+      })
+    );
+    try {
+      const res = await fetch(`/api/companies/${company.id}/instagram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+    } catch (err: any) {
+      setError(`Couldn't save your Instagram answer: ${err.message}`);
+      await loadCompanies();
+    }
+  }
+
+  function instagramLookupUrl(c: Company) {
+    // Instagram's own search needs you to be logged in and can't be linked to,
+    // so this searches Google for their Instagram page instead.
+    return `https://www.google.com/search?q=${encodeURIComponent(`${c.name} ${c.city} instagram`)}`;
+  }
+
   function handleExport() {
     const url = cityFilter ? `/api/export?city=${encodeURIComponent(cityFilter)}` : "/api/export";
     window.open(url, "_blank");
@@ -463,7 +504,7 @@ export default function Home() {
         >
           <option value="">All</option>
           <option value="has">Has Instagram</option>
-          <option value="none">No Instagram</option>
+          <option value="none">No Instagram (leads)</option>
           <option value="unknown">Unknown</option>
         </select>
       </div>
@@ -495,9 +536,81 @@ export default function Home() {
               <tr key={c.id}>
                 <td style={styles.td}>{c.name}</td>
                 <td style={styles.td}>
-                  {c.has_instagram === false && <span style={styles.badgeGap}>No Instagram</span>}
-                  {c.has_instagram === true && <span style={styles.badgeOk}>Has Instagram</span>}
-                  {c.has_instagram === null && <span style={styles.badgeUnknown}>Unknown</span>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      {c.has_instagram === false && (
+                        <span style={styles.badgeGap}>
+                          {c.manual_instagram === false
+                            ? "No Instagram"
+                            : c.google_checked
+                              ? "No Instagram found"
+                              : "No IG link on website"}
+                        </span>
+                      )}
+                      {c.has_instagram === true && <span style={styles.badgeOk}>Has Instagram</span>}
+                      {c.has_instagram === null && <span style={styles.badgeUnknown}>Not sure</span>}
+                      {c.manual_instagram !== null && (
+                        <span style={{ fontSize: 11, color: "#7fdb8a" }} title="You confirmed this yourself">
+                          ✔ checked by you
+                        </span>
+                      )}
+                    </div>
+
+                    {c.instagram_url && c.has_instagram === true && (
+                      <a
+                        href={c.instagram_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#7aa2ff", fontSize: 12 }}
+                      >
+                        {c.instagram_url.replace(/^https:\/\/www\.instagram\.com\/?/, "@").replace(/\/$/, "") || "Instagram"}
+                        {c.manual_instagram === null && (
+                          <span style={{ color: "#777" }}>
+                            {" "}
+                            (found on {c.instagram_source === "google" ? "Google" : "their website"})
+                          </span>
+                        )}
+                      </a>
+                    )}
+
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      <a
+                        href={instagramLookupUrl(c)}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ ...styles.linkButton, textDecoration: "none" }}
+                        title="Opens a Google search for their Instagram in a new tab"
+                      >
+                        Check Instagram
+                      </a>
+                      {c.manual_instagram === null ? (
+                        <>
+                          <button
+                            style={styles.linkButton}
+                            onClick={() => handleSetInstagram(c, true)}
+                            title="I checked — they DO have Instagram"
+                          >
+                            Yes, has IG
+                          </button>
+                          <button
+                            style={styles.linkButton}
+                            onClick={() => handleSetInstagram(c, false)}
+                            title="I checked — they do NOT have Instagram"
+                          >
+                            No, confirmed
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          style={styles.linkButton}
+                          onClick={() => handleSetInstagram(c, null)}
+                          title="Remove your answer and go back to the automatic result"
+                        >
+                          Undo
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </td>
                 <td style={styles.td}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

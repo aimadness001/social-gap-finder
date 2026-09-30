@@ -12,7 +12,20 @@
 //    Squarespace, WordPress) render this server-side, so this mainly affects
 //    custom-built JS-heavy sites.
 
-const INSTAGRAM_PATTERN = /instagram\.com\/[a-zA-Z0-9._]+/i;
+const INSTAGRAM_PATTERN = /instagram\.com\/([a-zA-Z0-9._]+)/gi;
+const NON_PROFILE = new Set(["p", "reel", "reels", "explore", "stories", "tv", "accounts", "sharer"]);
+
+// Returns the first Instagram profile URL linked in the HTML, or false if none.
+function findInstagramLink(html: string): string | false {
+  for (const m of Array.from(html.matchAll(INSTAGRAM_PATTERN))) {
+    const handle = m[1].replace(/\.+$/, "");
+    if (handle && !NON_PROFILE.has(handle.toLowerCase())) {
+      return `https://www.instagram.com/${handle}/`;
+    }
+  }
+  // Link to a post/reel only — still means they have Instagram.
+  return /instagram\.com\//i.test(html) ? "https://www.instagram.com/" : false;
+}
 const HOMEPAGE_TIMEOUT_MS = 8000;
 const SUBPAGE_TIMEOUT_MS = 5000;
 // Checked only if the homepage was reachable but had no Instagram link —
@@ -23,7 +36,8 @@ function normalizeUrl(website: string): string {
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
 }
 
-async function fetchAndCheck(url: string, timeoutMs: number): Promise<boolean | null> {
+// string = Instagram URL found, false = page loaded but no link, null = couldn't load.
+async function fetchAndCheck(url: string, timeoutMs: number): Promise<string | false | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -40,7 +54,7 @@ async function fetchAndCheck(url: string, timeoutMs: number): Promise<boolean | 
     if (!res.ok) return null;
 
     const html = await res.text();
-    return INSTAGRAM_PATTERN.test(html);
+    return findInstagramLink(html);
   } catch {
     return null;
   } finally {
@@ -48,7 +62,9 @@ async function fetchAndCheck(url: string, timeoutMs: number): Promise<boolean | 
   }
 }
 
-export async function checkForInstagram(website: string | null): Promise<boolean | null> {
+// Returns the Instagram URL found on the site, false if the site has no link,
+// or null if the site couldn't be reached (unknown).
+export async function checkForInstagram(website: string | null): Promise<string | false | null> {
   if (!website) return null;
 
   const homepageUrl = normalizeUrl(website);
@@ -57,7 +73,7 @@ export async function checkForInstagram(website: string | null): Promise<boolean
   // Homepage unreachable entirely — don't bother trying subpages on the same
   // domain, and don't penalize the business for our tool's connectivity issue.
   if (homepageResult === null) return null;
-  if (homepageResult === true) return true;
+  if (homepageResult) return homepageResult;
 
   // Homepage was reachable but had no Instagram link — check a couple of
   // common secondary pages before concluding "no Instagram."
@@ -75,5 +91,5 @@ export async function checkForInstagram(website: string | null): Promise<boolean
     SUBPATHS_TO_CHECK.map((path) => fetchAndCheck(`${origin}${path}`, SUBPAGE_TIMEOUT_MS))
   );
 
-  return subpageResults.some((r) => r === true);
+  return subpageResults.find((r): r is string => typeof r === "string") || false;
 }
