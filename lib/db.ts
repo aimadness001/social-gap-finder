@@ -16,6 +16,7 @@ export type Company = {
   instagram_source: "website" | "google" | null; // where the link was found
   google_checked: boolean; // did the Google search run for this company?
   manual_instagram: boolean | null; // your answer (null = you haven't checked)
+  contacted_at: string | null; // when you marked this company as contacted
   checked_at: string | null;
   created_at: string;
 };
@@ -32,12 +33,23 @@ export function ensureInstagramColumns(): Promise<void> {
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS google_checked BOOLEAN DEFAULT FALSE;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS manual_instagram BOOLEAN;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS manual_checked_at TIMESTAMP;`;
+      await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacted_at TIMESTAMP;`;
     })().catch((err) => {
       columnsReady = null; // retry next time
       throw err;
     });
   }
   return columnsReady;
+}
+
+// Marks a company as contacted (true) or not contacted (false).
+export async function setContacted(companyId: number, contacted: boolean) {
+  await ensureInstagramColumns();
+  await sql`
+    UPDATE companies
+    SET contacted_at = ${contacted ? new Date().toISOString() : null}
+    WHERE id = ${companyId};
+  `;
 }
 
 // Saves (or clears, with null) your own answer for whether a company has Instagram.
@@ -132,7 +144,7 @@ export async function getRankedCompanies(city?: string): Promise<RankedCompany[]
           c.has_instagram AS auto_has_instagram,
           c.instagram_url, c.instagram_source,
           COALESCE(c.google_checked, false) AS google_checked,
-          c.manual_instagram, c.checked_at, c.created_at,
+          c.manual_instagram, c.contacted_at, c.checked_at, c.created_at,
           COALESCE(r.flagged_count, 0)::int AS flagged_review_count,
           (CASE WHEN COALESCE(c.manual_instagram, c.has_instagram) = false THEN 2 ELSE 0 END + COALESCE(r.flagged_count, 0))::int AS social_gap_score
         FROM companies c
@@ -150,7 +162,7 @@ export async function getRankedCompanies(city?: string): Promise<RankedCompany[]
           c.has_instagram AS auto_has_instagram,
           c.instagram_url, c.instagram_source,
           COALESCE(c.google_checked, false) AS google_checked,
-          c.manual_instagram, c.checked_at, c.created_at,
+          c.manual_instagram, c.contacted_at, c.checked_at, c.created_at,
           COALESCE(r.flagged_count, 0)::int AS flagged_review_count,
           (CASE WHEN COALESCE(c.manual_instagram, c.has_instagram) = false THEN 2 ELSE 0 END + COALESCE(r.flagged_count, 0))::int AS social_gap_score
         FROM companies c

@@ -195,3 +195,41 @@ select.sg-field {
   .sg-table td:nth-child(6) { grid-column: 1 / -1; text-align: left !important; }
   .sg-table td[colspan] { grid-column: 1 / -1; }
 }
+
+/* Stage tabs on top of the companies list */
+.sg-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.sg-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 16px 12px 14px;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.sg-tab:hover { color: var(--text); }
+.sg-tab.is-active { color: var(--text); border-bottom-color: var(--brass); font-weight: 600; }
+.sg-tab-count {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  text-align: center;
+}
+.sg-tab.is-active .sg-tab-count { background: var(--brass-soft); color: var(--brass); }

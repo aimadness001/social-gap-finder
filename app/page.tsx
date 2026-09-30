@@ -15,6 +15,7 @@ type Company = {
   instagram_source: "website" | "google" | null;
   google_checked: boolean;
   manual_instagram: boolean | null;
+  contacted_at: string | null;
   flagged_review_count: number;
   social_gap_score: number;
 };
@@ -27,6 +28,29 @@ type Review = {
   flag_reason: string | null;
   flagged_social_complaint?: boolean;
 };
+
+type Tab = "check" | "leads" | "contacted" | "all";
+
+// Which tab a company belongs to. "Has Instagram" companies only appear under "All".
+function inTab(c: Company, tab: Tab): boolean {
+  if (tab === "all") return true;
+  if (tab === "contacted") return c.contacted_at !== null;
+  if (c.contacted_at !== null) return false;
+  if (tab === "leads") return c.manual_instagram === false;
+  // "check": you haven't confirmed it yet, and it isn't known to have Instagram
+  return c.manual_instagram === null && c.has_instagram !== true;
+}
+
+const TABS: { id: Tab; label: string; hint: string }[] = [
+  { id: "check", label: "To check", hint: "Not confirmed by you yet" },
+  { id: "leads", label: "Leads", hint: "Confirmed no Instagram, ready to contact" },
+  { id: "contacted", label: "Contacted", hint: "Companies you've reached out to" },
+  { id: "all", label: "All", hint: "Every company you've found" },
+];
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 type BulkDraft = {
   companyId: number;
@@ -150,7 +174,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [cityFilter, setCityFilter] = useState(""); // "" = show all cities
   const [websiteFilter, setWebsiteFilter] = useState(""); // "" | "has" | "none"
-  const [instagramFilter, setInstagramFilter] = useState(""); // "" | "has" | "none" | "unknown"
+  const [tab, setTab] = useState<Tab>("check");
   const [draftCompany, setDraftCompany] = useState<Company | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
@@ -255,6 +279,24 @@ export default function Home() {
     }
   }
 
+  async function handleSetContacted(company: Company, contacted: boolean) {
+    setError(null);
+    const stamp = contacted ? new Date().toISOString() : null;
+    setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, contacted_at: stamp } : c)));
+    try {
+      const res = await fetch(`/api/companies/${company.id}/contacted`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contacted }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+    } catch (err: any) {
+      setError(`Couldn't save "contacted": ${err.message}`);
+      await loadCompanies();
+    }
+  }
+
   function instagramLookupUrl(c: Company) {
     // Instagram's own search needs you to be logged in and can't be linked to,
     // so this searches Google for their Instagram page instead.
@@ -271,20 +313,26 @@ export default function Home() {
     return Array.from(set).sort();
   }, [companies]);
 
-  const visibleCompanies = useMemo(() => {
+  // City/website filters apply to every tab.
+  const filteredCompanies = useMemo(() => {
     return companies.filter((c) => {
       if (cityFilter && c.city !== cityFilter) return false;
-
       if (websiteFilter === "has" && !c.website) return false;
       if (websiteFilter === "none" && c.website) return false;
-
-      if (instagramFilter === "has" && c.has_instagram !== true) return false;
-      if (instagramFilter === "none" && c.has_instagram !== false) return false;
-      if (instagramFilter === "unknown" && c.has_instagram !== null) return false;
-
       return true;
     });
-  }, [companies, cityFilter, websiteFilter, instagramFilter]);
+  }, [companies, cityFilter, websiteFilter]);
+
+  const visibleCompanies = useMemo(
+    () => filteredCompanies.filter((c) => inTab(c, tab)),
+    [filteredCompanies, tab]
+  );
+
+  const tabCounts = useMemo(() => {
+    const counts = {} as Record<Tab, number>;
+    for (const t of TABS) counts[t.id] = filteredCompanies.filter((c) => inTab(c, t.id)).length;
+    return counts;
+  }, [filteredCompanies]);
 
   async function handleDraftEmail(company: Company) {
     setDraftCompany(company);
@@ -411,9 +459,13 @@ export default function Home() {
     setReviewsCompany(null);
   }
 
-  const leadCount = visibleCompanies.filter((c) => c.has_instagram === false).length;
-  const checkedCount = visibleCompanies.filter((c) => c.manual_instagram !== null).length;
-  const filtersActive = Boolean(cityFilter || websiteFilter || instagramFilter);
+  const filtersActive = Boolean(cityFilter || websiteFilter);
+  const emptyMessage: Record<Tab, string> = {
+    check: "Nothing left to check. Confirm companies here and they move to Leads.",
+    leads: "No leads yet. Use \"No IG\" on companies in To check to add them here.",
+    contacted: "No one contacted yet. Use \"Mark contacted\" after you reach out to a lead.",
+    all: "No companies to show.",
+  };
 
   return (
     <div style={styles.page}>
@@ -496,9 +548,8 @@ export default function Home() {
             Your leads
           </h2>
           <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
-            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{leadCount}</span> without
-            Instagram out of {visibleCompanies.length} companies
-            {checkedCount > 0 && <>, {checkedCount} checked by you</>}
+            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.leads}</span> ready to
+            contact, {tabCounts.check} to check, {tabCounts.contacted} contacted
           </p>
         </div>
 
@@ -518,17 +569,6 @@ export default function Home() {
           </select>
           <select
             className="sg-field"
-            aria-label="Filter by Instagram"
-            value={instagramFilter}
-            onChange={(e) => setInstagramFilter(e.target.value)}
-          >
-            <option value="">Any Instagram</option>
-            <option value="none">No Instagram (leads)</option>
-            <option value="has">Has Instagram</option>
-            <option value="unknown">Not sure</option>
-          </select>
-          <select
-            className="sg-field"
             aria-label="Filter by website"
             value={websiteFilter}
             onChange={(e) => setWebsiteFilter(e.target.value)}
@@ -541,6 +581,21 @@ export default function Home() {
       </div>
 
       <section style={{ ...styles.card, padding: 0, overflow: "hidden" }} aria-label="Companies">
+        <div className="sg-tabs" role="tablist" aria-label="Lead stages">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`sg-tab${tab === t.id ? " is-active" : ""}`}
+              onClick={() => setTab(t.id)}
+              title={t.hint}
+            >
+              {t.label}
+              <span className="sg-tab-count sg-num">{tabCounts[t.id]}</span>
+            </button>
+          ))}
+        </div>
         <div className="sg-table-wrap">
           <table className="sg-table">
             <thead>
@@ -559,9 +614,9 @@ export default function Home() {
                   <td colSpan={6} style={{ padding: "56px 16px", textAlign: "center", color: "var(--muted)" }}>
                     {companies.length === 0
                       ? "No companies yet. Search a city above to find your first leads."
-                      : filtersActive
+                      : filtersActive && tabCounts[tab] === 0 && tab === "all"
                         ? "No companies match these filters. Try changing or clearing them."
-                        : "No companies to show."}
+                        : emptyMessage[tab]}
                   </td>
                 </tr>
               )}
@@ -705,9 +760,32 @@ export default function Home() {
                   </td>
 
                   <td style={{ textAlign: "right" }}>
-                    <button className="sg-btn sg-btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => handleDraftEmail(c)}>
-                      Draft email
-                    </button>
+                    <div style={{ display: "inline-flex", flexDirection: "column", gap: 8, alignItems: "stretch" }}>
+                      <button className="sg-btn sg-btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => handleDraftEmail(c)}>
+                        Draft email
+                      </button>
+                      {c.contacted_at ? (
+                        <div style={{ fontSize: 12, color: "var(--sage)", textAlign: "center" }}>
+                          ✓ Contacted {formatDate(c.contacted_at)}
+                          <button
+                            className="sg-btn sg-btn-quiet"
+                            style={{ fontSize: 12, marginLeft: 8 }}
+                            onClick={() => handleSetContacted(c, false)}
+                            title="Move back out of Contacted"
+                          >
+                            Undo
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="sg-btn sg-btn-quiet"
+                          style={{ fontSize: 13 }}
+                          onClick={() => handleSetContacted(c, true)}
+                        >
+                          Mark contacted
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
