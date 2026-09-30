@@ -29,20 +29,24 @@ type Review = {
   flagged_social_complaint?: boolean;
 };
 
-type Tab = "noig" | "hasig" | "contacted";
+type Tab = "leads" | "noig" | "hasig" | "contacted";
 
-// "No IG" = no Instagram found (or not sure yet). "Has IG" = has Instagram.
-// Your own Has IG / No IG answer always wins over the automatic check.
-// Once you mark a company as contacted, it moves to "Contacted".
+// Leads     = new companies you haven't checked yet (and not known to have Instagram)
+// No IG     = you confirmed they have no Instagram
+// Has IG    = they have Instagram (found automatically or confirmed by you)
+// Contacted = you marked them as contacted (they leave the other tabs)
 function inTab(c: Company, tab: Tab): boolean {
   if (tab === "contacted") return c.contacted_at !== null;
   if (c.contacted_at !== null) return false;
-  return tab === "hasig" ? c.has_instagram === true : c.has_instagram !== true;
+  if (tab === "hasig") return c.has_instagram === true;
+  if (tab === "noig") return c.manual_instagram === false;
+  return c.manual_instagram === null && c.has_instagram !== true;
 }
 
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: "noig", label: "No IG", hint: "No Instagram found. These are your leads." },
-  { id: "hasig", label: "Has IG", hint: "Companies that already have Instagram" },
+  { id: "leads", label: "Leads", hint: "New companies to check" },
+  { id: "noig", label: "No IG", hint: "You confirmed they have no Instagram" },
+  { id: "hasig", label: "Has IG", hint: "Companies that have Instagram" },
   { id: "contacted", label: "Contacted", hint: "Companies you've reached out to" },
 ];
 
@@ -172,7 +176,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [cityFilter, setCityFilter] = useState(""); // "" = show all cities
   const [websiteFilter, setWebsiteFilter] = useState(""); // "" | "has" | "none"
-  const [tab, setTab] = useState<Tab>("noig");
+  const [tab, setTab] = useState<Tab>("leads");
   const [toast, setToast] = useState<{ id: number; message: string; undo: () => void } | null>(null);
 
   // Hide the "moved to…" message after a few seconds.
@@ -305,8 +309,8 @@ export default function Home() {
 
   // Where a company ends up after a change, in plain words for the message.
   function destinationLabel(c: Company): string {
-    if (inTab(c, "contacted")) return "Contacted";
-    return inTab(c, "hasig") ? "Has IG" : "No IG";
+    const t = TABS.find((t) => inTab(c, t.id));
+    return t ? t.label : "Leads";
   }
 
   // If a change moves the company out of the tab you're looking at,
@@ -499,7 +503,8 @@ export default function Home() {
 
   const filtersActive = Boolean(cityFilter || websiteFilter);
   const emptyMessage: Record<Tab, string> = {
-    noig: "No companies without Instagram here. Search another city to find more leads.",
+    leads: "No new companies to check. Search another city to find more.",
+    noig: "None yet. Click \"No IG\" on a company in Leads to move it here.",
     hasig: "No companies with Instagram here yet.",
     contacted: "No one contacted yet. Use \"Mark contacted\" after you reach out to a company.",
   };
@@ -585,8 +590,8 @@ export default function Home() {
             Your leads
           </h2>
           <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
-            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.noig}</span> without
-            Instagram, {tabCounts.hasig} with Instagram, {tabCounts.contacted} contacted
+            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.leads}</span> to check,{" "}
+            {tabCounts.noig} with no Instagram, {tabCounts.contacted} contacted
           </p>
         </div>
 
