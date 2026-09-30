@@ -29,23 +29,17 @@ type Review = {
   flagged_social_complaint?: boolean;
 };
 
-type Tab = "check" | "leads" | "contacted" | "all";
+type Tab = "noig" | "hasig";
 
-// Which tab a company belongs to. "Has Instagram" companies only appear under "All".
+// "No IG" = no Instagram found (or not sure yet). "Has IG" = has Instagram.
+// Your own Has IG / No IG answer always wins over the automatic check.
 function inTab(c: Company, tab: Tab): boolean {
-  if (tab === "all") return true;
-  if (tab === "contacted") return c.contacted_at !== null;
-  if (c.contacted_at !== null) return false;
-  if (tab === "leads") return c.manual_instagram === false;
-  // "check": you haven't confirmed it yet, and it isn't known to have Instagram
-  return c.manual_instagram === null && c.has_instagram !== true;
+  return tab === "hasig" ? c.has_instagram === true : c.has_instagram !== true;
 }
 
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: "check", label: "To check", hint: "Not confirmed by you yet" },
-  { id: "leads", label: "Leads", hint: "Confirmed no Instagram, ready to contact" },
-  { id: "contacted", label: "Contacted", hint: "Companies you've reached out to" },
-  { id: "all", label: "All", hint: "Every company you've found" },
+  { id: "noig", label: "No IG", hint: "No Instagram found. These are your leads." },
+  { id: "hasig", label: "Has IG", hint: "Companies that already have Instagram" },
 ];
 
 function formatDate(iso: string) {
@@ -174,7 +168,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [cityFilter, setCityFilter] = useState(""); // "" = show all cities
   const [websiteFilter, setWebsiteFilter] = useState(""); // "" | "has" | "none"
-  const [tab, setTab] = useState<Tab>("check");
+  const [tab, setTab] = useState<Tab>("noig");
   const [toast, setToast] = useState<{ id: number; message: string; undo: () => void } | null>(null);
 
   // Hide the "moved to…" message after a few seconds.
@@ -307,10 +301,7 @@ export default function Home() {
 
   // Where a company ends up after a change, in plain words for the message.
   function destinationLabel(c: Company): string {
-    if (inTab(c, "contacted")) return "Contacted";
-    if (inTab(c, "leads")) return "Leads";
-    if (inTab(c, "check")) return "To check";
-    return "All (has Instagram)";
+    return inTab(c, "hasig") ? "Has IG" : "No IG";
   }
 
   // If a change moves the company out of the tab you're looking at,
@@ -503,11 +494,10 @@ export default function Home() {
 
   const filtersActive = Boolean(cityFilter || websiteFilter);
   const emptyMessage: Record<Tab, string> = {
-    check: "Nothing left to check. Confirm companies here and they move to Leads.",
-    leads: "No leads yet. Use \"No IG\" on companies in To check to add them here.",
-    contacted: "No one contacted yet. Use \"Mark contacted\" after you reach out to a lead.",
-    all: "No companies to show.",
+    noig: "No companies without Instagram here. Search another city to find more leads.",
+    hasig: "No companies with Instagram here yet.",
   };
+  const contactedCount = filteredCompanies.filter((c) => c.contacted_at !== null).length;
 
   return (
     <div style={styles.page}>
@@ -590,8 +580,8 @@ export default function Home() {
             Your leads
           </h2>
           <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
-            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.leads}</span> ready to
-            contact, {tabCounts.check} to check, {tabCounts.contacted} contacted
+            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.noig}</span> without
+            Instagram, {tabCounts.hasig} with Instagram, {contactedCount} contacted
           </p>
         </div>
 
@@ -656,7 +646,7 @@ export default function Home() {
                   <td colSpan={6} style={{ padding: "56px 16px", textAlign: "center", color: "var(--muted)" }}>
                     {companies.length === 0
                       ? "No companies yet. Search a city above to find your first leads."
-                      : filtersActive && tabCounts[tab] === 0 && tab === "all"
+                      : filtersActive && filteredCompanies.length === 0
                         ? "No companies match these filters. Try changing or clearing them."
                         : emptyMessage[tab]}
                   </td>
