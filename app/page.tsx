@@ -759,7 +759,7 @@ export default function Home() {
             value={websiteFilter}
             onChange={(e) => setWebsiteFilter(e.target.value)}
           >
-            <option value="">All companies</option>
+            <option value="">All websites</option>
             <option value="has">Has website</option>
             <option value="none">No website</option>
           </select>
