@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@vercel/postgres";
 import { ensureInstagramColumns } from "@/lib/db";
-import { scanWebsite } from "@/lib/instagramCheck";
+import { scanWebsite, EMAIL_SCAN_VERSION } from "@/lib/instagramCheck";
 
 export const maxDuration = 60;
 
@@ -16,7 +16,8 @@ export async function POST() {
     await ensureInstagramColumns();
     const todo = await sql<{ id: number; website: string }>`
       SELECT id, website FROM companies
-      WHERE website IS NOT NULL AND COALESCE(email_checked, false) = false
+      WHERE website IS NOT NULL AND email IS NULL
+        AND COALESCE(email_scan_version, 0) < ${EMAIL_SCAN_VERSION}
       ORDER BY id LIMIT ${BATCH};
     `;
 
@@ -30,7 +31,12 @@ export async function POST() {
         rows.slice(i, i + AT_ONCE).map(async (row) => {
           const scan = await scanWebsite(row.website);
           // Unreachable sites are marked checked too, so they aren't retried forever.
-          await sql`UPDATE companies SET email = COALESCE(${scan.email}, email), email_checked = true WHERE id = ${row.id};`;
+          await sql`
+            UPDATE companies
+            SET email = COALESCE(${scan.email}, email), email_checked = true,
+                email_scan_version = ${EMAIL_SCAN_VERSION}
+            WHERE id = ${row.id};
+          `;
           checked++;
           if (scan.email) found++;
         })
@@ -39,7 +45,8 @@ export async function POST() {
 
     const left = await sql<{ n: number }>`
       SELECT COUNT(*)::int AS n FROM companies
-      WHERE website IS NOT NULL AND COALESCE(email_checked, false) = false;
+      WHERE website IS NOT NULL AND email IS NULL
+        AND COALESCE(email_scan_version, 0) < ${EMAIL_SCAN_VERSION};
     `;
     return NextResponse.json({ ok: true, checked, found, remaining: left.rows[0].n });
   } catch (err: any) {

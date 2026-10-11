@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchPlaces, getPlaceDetails } from "@/lib/googlePlaces";
-import { scanWebsite } from "@/lib/instagramCheck";
+import { scanWebsite, EMAIL_SCAN_VERSION } from "@/lib/instagramCheck";
 import { searchInstagramOnGoogle } from "@/lib/instagramSearch";
 import { upsertCompany } from "@/lib/db";
 
@@ -92,6 +92,7 @@ export async function POST(req: Request) {
           google_review_count: details.reviewCount,
           email: scan.email,
           email_checked: scan.reachable,
+          email_scan_version: scan.reachable ? EMAIL_SCAN_VERSION : 0,
         });
 
         results.push({

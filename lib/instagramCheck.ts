@@ -50,7 +50,26 @@ function decodeCfEmail(hex: string): string | null {
   }
 }
 
-function findEmails(html: string): string[] {
+// Turns &#105;&#110;&#102;&#111; / &#x40; / &commat; style codes back into text.
+function decodeEntities(html: string): string {
+  return html
+    .replace(/&#(\d+);?/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);?/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&commat;/gi, "@")
+    .replace(/&period;/gi, ".")
+    .replace(/&amp;/gi, "&");
+}
+
+// "info [at] company [dot] com" / "info(at)company(dot)com" -> info@company.com
+function undoObfuscation(text: string): string {
+  return text
+    .replace(/\s*[\[(\{]\s*at\s*[\])\}]\s*/gi, "@")
+    .replace(/\s*[\[(\{]\s*dot\s*[\])\}]\s*/gi, ".")
+    .replace(/(@[a-z0-9-]+)\s+dot\s+(?=[a-z]{2,}\b)/gi, "$1.");
+}
+
+function findEmails(rawHtml: string): string[] {
+  const html = decodeEntities(rawHtml);
   const found: string[] = [];
   for (const m of Array.from(html.matchAll(/mailto:([^"'?\s<>]+)/gi))) {
     try {
@@ -64,6 +83,9 @@ function findEmails(html: string): string[] {
     if (e) found.push(e);
   }
   for (const m of Array.from(html.matchAll(EMAIL_PATTERN))) found.push(m[0]);
+  // Only in visible text (tags removed), to avoid false matches inside code.
+  const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+  for (const m of Array.from(undoObfuscation(text).matchAll(EMAIL_PATTERN))) found.push(m[0]);
 
   const clean = new Set<string>();
   for (const raw of found) {
@@ -99,6 +121,29 @@ const SUBPAGE_TIMEOUT_MS = 5000;
 // Checked when the homepage didn't have everything — social icons and email
 // addresses often only appear on these pages.
 const SUBPATHS_TO_CHECK = ["/contact", "/contact-us", "/about"];
+// Links on the homepage whose address or text looks like a contact/quote page.
+const CONTACT_LINK_WORDS = /(contact|get-in-touch|get-a-quote|quote|estimate|reach-us|connect|about)/i;
+const MAX_EXTRA_PAGES = 5;
+
+// Finds same-site links that probably lead to a contact page, e.g. /contact.html,
+// /get-a-free-quote, /pages/contact-us.
+function findContactLinks(html: string, pageUrl: string): string[] {
+  const origin = new URL(pageUrl).origin;
+  const out = new Set<string>();
+  for (const m of Array.from(html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi))) {
+    const href = m[1].trim();
+    const label = m[2].replace(/<[^>]+>/g, " ");
+    if (!CONTACT_LINK_WORDS.test(href) && !CONTACT_LINK_WORDS.test(label)) continue;
+    if (/^(mailto|tel|javascript):/i.test(href)) continue;
+    try {
+      const u = new URL(href, pageUrl);
+      if (u.origin !== origin) continue;
+      if (/\.(pdf|jpe?g|png|gif|zip)$/i.test(u.pathname)) continue;
+      out.add(u.origin + u.pathname);
+    } catch {}
+  }
+  return Array.from(out);
+}
 
 function normalizeUrl(website: string): string {
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
@@ -113,7 +158,11 @@ async function fetchPage(url: string, timeoutMs: number): Promise<string | null>
       signal: controller.signal,
       redirect: "follow",
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; SocialGapFinder/1.0; +https://vercel.app)",
+        // Look like a normal browser — many sites block unknown visitors.
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
       },
     });
     if (!res.ok) return null;
@@ -124,6 +173,9 @@ async function fetchPage(url: string, timeoutMs: number): Promise<string | null>
     clearTimeout(timeout);
   }
 }
+
+// Bump when email finding improves, so companies with no email get re-checked.
+export const EMAIL_SCAN_VERSION = 2;
 
 export type WebsiteScan = {
   // string = Instagram URL found, false = site loaded but no link, null = couldn't load.
@@ -156,8 +208,14 @@ export async function scanWebsite(website: string | null): Promise<WebsiteScan> 
       origin = new URL(homepageUrl).origin;
     } catch {}
     if (origin) {
-      // In parallel: worst-case wait is one timeout, not three.
-      const pages = await Promise.all(SUBPATHS_TO_CHECK.map((path) => fetchPage(`${origin}${path}`, SUBPAGE_TIMEOUT_MS)));
+      // Contact-looking links from the homepage first, then the usual paths.
+      // In parallel: worst-case wait is one timeout, not several.
+      const urls = Array.from(
+        new Set([...findContactLinks(home, homepageUrl), ...SUBPATHS_TO_CHECK.map((p) => origin + p)])
+      )
+        .filter((u) => u.replace(/\/$/, "") !== homepageUrl.replace(/\/$/, ""))
+        .slice(0, MAX_EXTRA_PAGES);
+      const pages = await Promise.all(urls.map((u) => fetchPage(u, SUBPAGE_TIMEOUT_MS)));
       for (const html of pages) {
         if (!html) continue;
         if (!instagram) instagram = findInstagramLink(html);
