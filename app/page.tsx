@@ -15,7 +15,8 @@ type Company = {
   instagram_source: "website" | "google" | null;
   google_checked: boolean;
   manual_instagram: boolean | null;
-  contacted_at: string | null;
+  contacted_at: string | null; // date Email 1 was sent
+  emails_sent: number; // how many of the 3 sequence emails were sent (0-3)
   flagged_review_count: number;
   social_gap_score: number;
 };
@@ -54,9 +55,41 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+// ---- 3-email outreach sequence (Day 1 / Day 4 / Day 8) ----
+type Step = 1 | 2 | 3;
+const STEP_NAME: Record<Step, string> = { 1: "Email 1 · Cold outreach", 2: "Email 2 · Follow-up", 3: "Email 3 · Final" };
+const STEP_DAY_OFFSET: Record<Step, number> = { 1: 0, 2: 3, 3: 7 };
+
+function sentCount(c: Company): number {
+  return c.contacted_at ? Math.max(c.emails_sent || 0, 1) : 0;
+}
+
+function startOfDay(d: Date | string) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+// The next email this company is waiting for, and when it's due.
+function nextFollowUp(c: Company): { step: Step; due: Date; daysLeft: number } | null {
+  const sent = sentCount(c);
+  if (sent === 0 || sent >= 3 || !c.contacted_at) return null;
+  const step = (sent + 1) as Step;
+  const due = startOfDay(c.contacted_at);
+  due.setDate(due.getDate() + STEP_DAY_OFFSET[step]);
+  const daysLeft = Math.round((due.getTime() - startOfDay(new Date()).getTime()) / 864e5);
+  return { step, due, daysLeft };
+}
+
+function isDue(c: Company) {
+  const f = nextFollowUp(c);
+  return f !== null && f.daysLeft <= 0;
+}
+
 type BulkDraft = {
   companyId: number;
   companyName: string;
+  step?: Step;
   subject: string;
   body: string;
   error?: string;
@@ -186,6 +219,7 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [toast]);
   const [draftCompany, setDraftCompany] = useState<Company | null>(null);
+  const [draftStep, setDraftStep] = useState<Step>(1);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [draftLoading, setDraftLoading] = useState(false);
@@ -292,7 +326,9 @@ export default function Home() {
   async function handleSetContacted(company: Company, contacted: boolean) {
     setError(null);
     const stamp = contacted ? new Date().toISOString() : null;
-    setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, contacted_at: stamp } : c)));
+    setCompanies((prev) =>
+      prev.map((c) => (c.id === company.id ? { ...c, contacted_at: stamp, emails_sent: contacted ? 1 : 0 } : c))
+    );
     try {
       const res = await fetch(`/api/companies/${company.id}/contacted`, {
         method: "POST",
@@ -334,9 +370,43 @@ export default function Home() {
   }
 
   function markContacted(c: Company, contacted: boolean) {
-    const after = { ...c, contacted_at: contacted ? new Date().toISOString() : null };
+    const after = { ...c, contacted_at: contacted ? new Date().toISOString() : null, emails_sent: contacted ? 1 : 0 };
     announceMove(c, after, () => handleSetContacted(after, !contacted));
     handleSetContacted(c, contacted);
+  }
+
+  // Records that follow-up Email 2 or 3 was sent.
+  async function saveEmailsSent(company: Company, sent: number) {
+    setError(null);
+    setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, emails_sent: sent } : c)));
+    try {
+      const res = await fetch(`/api/companies/${company.id}/sequence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sent }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+    } catch (err: any) {
+      setError(`Couldn't save the email status: ${err.message}`);
+      await loadCompanies();
+    }
+  }
+
+  // "Mark Email N as sent" — Email 1 moves the company to Contacted,
+  // Emails 2 and 3 move it along the sequence.
+  function markEmailSent(c: Company, step: Step) {
+    if (step === 1) {
+      if (!c.contacted_at) markContacted(c, true);
+      return;
+    }
+    const previous = sentCount(c);
+    saveEmailsSent(c, step);
+    setToast({
+      id: Date.now(),
+      message: step === 3 ? `${c.name}: sequence finished` : `${c.name}: Email ${step} marked as sent`,
+      undo: () => saveEmailsSent(c, previous),
+    });
   }
 
   function instagramLookupUrl(c: Company) {
@@ -365,10 +435,18 @@ export default function Home() {
     });
   }, [companies, cityFilter, websiteFilter]);
 
-  const visibleCompanies = useMemo(
-    () => filteredCompanies.filter((c) => inTab(c, tab)),
-    [filteredCompanies, tab]
-  );
+  const visibleCompanies = useMemo(() => {
+    const list = filteredCompanies.filter((c) => inTab(c, tab));
+    if (tab !== "contacted") return list;
+    // Contacted tab: follow-ups due soonest at the top, finished sequences last.
+    const order = (c: Company) => {
+      const f = nextFollowUp(c);
+      return f ? f.daysLeft : 9999;
+    };
+    return [...list].sort((a, b) => order(a) - order(b));
+  }, [filteredCompanies, tab]);
+
+  const dueCount = useMemo(() => filteredCompanies.filter(isDue).length, [filteredCompanies]);
 
   const tabCounts = useMemo(() => {
     const counts = {} as Record<Tab, number>;
@@ -376,15 +454,17 @@ export default function Home() {
     return counts;
   }, [filteredCompanies]);
 
-  async function handleDraftEmail(company: Company) {
+  async function handleDraftEmail(company: Company, step?: Step) {
+    const s = step ?? (Math.min(sentCount(company) + 1, 3) as Step);
     setDraftCompany(company);
+    setDraftStep(s);
     setDraftSubject("");
     setDraftBody("");
     setDraftError(null);
     setCopyStatus(null);
     setDraftLoading(true);
     try {
-      const res = await fetch(`/api/companies/${company.id}/draft`);
+      const res = await fetch(`/api/companies/${company.id}/draft?step=${s}`);
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
       setDraftSubject(data.draft.subject);
@@ -416,12 +496,25 @@ export default function Home() {
     openInEmailApp(draftSubject, draftBody);
   }
 
+  // Opens a new Gmail message in a new tab with subject and body filled in.
+  function openInGmail(subject: string, body: string) {
+    const url =
+      "https://mail.google.com/mail/?view=cm&fs=1" +
+      `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(url, "_blank", "noopener");
+  }
+
   async function handleDraftAllVisible() {
-    const leads = visibleCompanies.filter((c) => c.social_gap_score > 0);
+    const leads =
+      tab === "contacted"
+        ? visibleCompanies.filter(isDue)
+        : visibleCompanies.filter((c) => c.social_gap_score > 0);
 
     if (leads.length === 0) {
       setBulkError(
-        "No companies with a social gap score above 0 in the current view — nothing to draft."
+        tab === "contacted"
+          ? "No follow-ups are due today in this view."
+          : "No companies with a social gap score above 0 in the current view — nothing to draft."
       );
       setBulkOpen(true);
       setBulkDrafts([]);
@@ -443,6 +536,7 @@ export default function Home() {
             return {
               companyId: c.id,
               companyName: c.name,
+              step: data.step,
               subject: data.draft.subject,
               body: data.draft.body,
             };
@@ -559,7 +653,7 @@ export default function Home() {
           }}
         >
           <button className="sg-btn sg-btn-quiet" onClick={handleDraftAllVisible}>
-            Draft emails for all leads
+            {tab === "contacted" ? "Draft all due follow-ups" : "Draft emails for all leads"}
           </button>
           <button className="sg-btn sg-btn-quiet" onClick={handleExport}>
             Export CSV
@@ -592,6 +686,19 @@ export default function Home() {
           <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
             <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.leads}</span> to check,{" "}
             {tabCounts.noig} with no Instagram, {tabCounts.contacted} contacted
+            {dueCount > 0 && (
+              <>
+                {" · "}
+                <button
+                  className="sg-btn sg-btn-quiet"
+                  style={{ color: "var(--rust)", fontWeight: 600, fontSize: 14, padding: 0 }}
+                  onClick={() => setTab("contacted")}
+                  title="Show the Contacted tab — due follow-ups are at the top"
+                >
+                  {dueCount} follow-up{dueCount === 1 ? "" : "s"} due
+                </button>
+              </>
+            )}
           </p>
         </div>
 
@@ -803,9 +910,56 @@ export default function Home() {
 
                   <td style={{ textAlign: "right" }}>
                     <div style={{ display: "inline-flex", flexDirection: "column", gap: 8, alignItems: "stretch" }}>
-                      <button className="sg-btn sg-btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => handleDraftEmail(c)}>
-                        Draft email
-                      </button>
+                      {(() => {
+                        const sent = sentCount(c);
+                        const f = nextFollowUp(c);
+                        if (!c.contacted_at) {
+                          return (
+                            <button className="sg-btn sg-btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => handleDraftEmail(c, 1)}>
+                              Draft email
+                            </button>
+                          );
+                        }
+                        if (!f) {
+                          return (
+                            <>
+                              <div style={{ fontSize: 12, color: "var(--sage)", textAlign: "center" }}>✓ Sequence finished</div>
+                              <button className="sg-btn sg-btn-quiet" style={{ fontSize: 13 }} onClick={() => handleDraftEmail(c, 3)}>
+                                View emails
+                              </button>
+                            </>
+                          );
+                        }
+                        const due = f.daysLeft <= 0;
+                        return (
+                          <>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                textAlign: "center",
+                                fontWeight: due ? 600 : 400,
+                                color: due ? "var(--rust)" : "var(--muted)",
+                              }}
+                            >
+                              {f.daysLeft < 0
+                                ? `Email ${f.step} overdue (${formatDate(f.due.toISOString())})`
+                                : f.daysLeft === 0
+                                  ? `Email ${f.step} due today`
+                                  : `Email ${f.step} due ${formatDate(f.due.toISOString())}`}
+                            </div>
+                            <button
+                              className={`sg-btn ${due ? "sg-btn-primary" : "sg-btn-ghost"}`}
+                              style={{ fontSize: 13, padding: "8px 14px" }}
+                              onClick={() => handleDraftEmail(c, f.step)}
+                            >
+                              {f.step === 2 ? "Draft follow-up" : "Draft final email"}
+                            </button>
+                            <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center" }}>
+                              {sent} of 3 sent
+                            </div>
+                          </>
+                        );
+                      })()}
                       {c.contacted_at ? (
                         <div style={{ fontSize: 12, color: "var(--sage)", textAlign: "center" }}>
                           ✓ Contacted {formatDate(c.contacted_at)}
@@ -863,13 +1017,36 @@ export default function Home() {
         <div className="sg-overlay" style={styles.overlay} onClick={closeDraftModal}>
           <div className="sg-modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <div style={styles.modalTitle}>Outreach draft — {draftCompany.name}</div>
+              <div style={styles.modalTitle}>{draftCompany.name}</div>
               <button className="sg-btn sg-btn-ghost" onClick={closeDraftModal}>
                 Close
               </button>
             </div>
 
-            {draftLoading && <div style={styles.status}>Generating…</div>}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }} role="tablist" aria-label="Email in sequence">
+              {([1, 2, 3] as Step[]).map((n) => {
+                const sent = sentCount(draftCompany) >= n;
+                return (
+                  <button
+                    key={n}
+                    role="tab"
+                    aria-selected={draftStep === n}
+                    className="sg-chip"
+                    style={
+                      draftStep === n
+                        ? { background: "var(--brass-soft)", borderColor: "var(--brass)", color: "var(--brass)", fontWeight: 600 }
+                        : undefined
+                    }
+                    onClick={() => handleDraftEmail(draftCompany, n)}
+                  >
+                    {sent ? "✓ " : ""}
+                    {STEP_NAME[n]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {draftLoading && <div style={styles.status}>Loading…</div>}
             {draftError && <div style={styles.error}>{draftError}</div>}
 
             {!draftLoading && !draftError && (
@@ -888,18 +1065,71 @@ export default function Home() {
                   <button className="sg-btn sg-btn-ghost" onClick={() => handleCopy(draftBody, "Body")}>
                     Copy body
                   </button>
-                  <button className="sg-btn sg-btn-primary" onClick={handleOpenInEmailApp}>
-                    Open in email app
+                  <button className="sg-btn sg-btn-primary" onClick={() => openInGmail(draftSubject, draftBody)}>
+                    Open in Gmail
+                  </button>
+                  <button className="sg-btn sg-btn-quiet" onClick={handleOpenInEmailApp}>
+                    Other email app
                   </button>
                 </div>
 
                 {copyStatus && <div style={styles.status}>{copyStatus}</div>}
-                <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12 }}>
-                  "Open in email app" launches your default email program (Outlook, Mail, etc.)
-                  with the subject and body already filled in — just add the recipient's address
-                  and hit send. This is a starting point — personalize it before sending, and fill
-                  in your name and contact info at the bottom.
-                </p>
+
+                <div
+                  style={{
+                    marginTop: 18,
+                    paddingTop: 14,
+                    borderTop: "1px solid var(--line-soft)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {(() => {
+                    const live = companies.find((x) => x.id === draftCompany.id) ?? draftCompany;
+                    const sent = sentCount(live);
+                    if (sent >= draftStep) {
+                      return (
+                        <span style={{ fontSize: 13, color: "var(--sage)" }}>
+                          ✓ Email {draftStep} marked as sent
+                          {draftStep === 1 && live.contacted_at ? ` on ${formatDate(live.contacted_at)}` : ""}
+                        </span>
+                      );
+                    }
+                    if (draftStep > sent + 1) {
+                      return (
+                        <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                          Send Email {sent + 1} first.
+                        </span>
+                      );
+                    }
+                    return (
+                      <>
+                        <button
+                          className="sg-btn sg-btn-ghost"
+                          onClick={() => {
+                            markEmailSent(live, draftStep);
+                            setDraftCompany({
+                              ...live,
+                              contacted_at: live.contacted_at ?? new Date().toISOString(),
+                              emails_sent: draftStep,
+                            });
+                          }}
+                        >
+                          Mark Email {draftStep} as sent
+                        </button>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {draftStep === 1
+                            ? "Moves the company to Contacted. Follow-up is due in 3 days."
+                            : draftStep === 2
+                              ? "The final email will be due 4 days later."
+                              : "Finishes the sequence for this company."}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
               </>
             )}
           </div>
@@ -957,7 +1187,9 @@ export default function Home() {
         <div className="sg-overlay" style={styles.overlay} onClick={closeBulkModal}>
           <div className="sg-modal" style={{ ...styles.modal, maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <div style={styles.modalTitle}>Draft outreach emails — all leads in current view</div>
+              <div style={styles.modalTitle}>
+                {tab === "contacted" ? "Follow-ups due today" : "Email 1 for all leads in this view"}
+              </div>
               <button className="sg-btn sg-btn-ghost" onClick={closeBulkModal}>
                 Close
               </button>
@@ -972,7 +1204,14 @@ export default function Home() {
                   key={d.companyId}
                   style={styles.subCard}
                 >
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{d.companyName}</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                    {d.companyName}
+                    {d.step && (
+                      <span style={{ fontWeight: 400, fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>
+                        {STEP_NAME[d.step]}
+                      </span>
+                    )}
+                  </div>
 
                   {d.error ? (
                     <div style={styles.error}>Couldn't generate a draft: {d.error}</div>
@@ -999,9 +1238,20 @@ export default function Home() {
                         >
                           Copy body
                         </button>
-                        <button className="sg-btn sg-btn-primary" onClick={() => openInEmailApp(d.subject, d.body)}>
-                          Open in email app
+                        <button className="sg-btn sg-btn-primary" onClick={() => openInGmail(d.subject, d.body)}>
+                          Open in Gmail
                         </button>
+                        {(() => {
+                          const live = companies.find((x) => x.id === d.companyId);
+                          if (!live || !d.step) return null;
+                          return sentCount(live) >= d.step ? (
+                            <span style={{ fontSize: 13, color: "var(--sage)", alignSelf: "center" }}>✓ Marked as sent</span>
+                          ) : (
+                            <button className="sg-btn sg-btn-ghost" onClick={() => markEmailSent(live, d.step!)}>
+                              Mark as sent
+                            </button>
+                          );
+                        })()}
                       </div>
                     </>
                   )}
@@ -1012,8 +1262,9 @@ export default function Home() {
 
             {!bulkLoading && bulkDrafts.length > 0 && (
               <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-                Only companies with a social gap score above 0 in your current filtered view are
-                included. Personalize each one before sending, and fill in your name/contact info.
+                {tab === "contacted"
+                  ? "Only follow-ups that are due today or overdue are included."
+                  : "Only companies with a social gap score above 0 in your current filtered view are included."}
               </p>
             )}
           </div>

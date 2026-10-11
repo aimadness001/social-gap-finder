@@ -16,7 +16,8 @@ export type Company = {
   instagram_source: "website" | "google" | null; // where the link was found
   google_checked: boolean; // did the Google search run for this company?
   manual_instagram: boolean | null; // your answer (null = you haven't checked)
-  contacted_at: string | null; // when you marked this company as contacted
+  contacted_at: string | null; // when you marked this company as contacted (= Email 1 sent)
+  emails_sent: number; // how many of the 3 outreach emails you've sent (0-3)
   checked_at: string | null;
   created_at: string;
 };
@@ -34,6 +35,7 @@ export function ensureInstagramColumns(): Promise<void> {
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS manual_instagram BOOLEAN;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS manual_checked_at TIMESTAMP;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacted_at TIMESTAMP;`;
+      await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS emails_sent INT DEFAULT 0;`;
     })().catch((err) => {
       columnsReady = null; // retry next time
       throw err;
@@ -43,12 +45,24 @@ export function ensureInstagramColumns(): Promise<void> {
 }
 
 // Marks a company as contacted (true) or not contacted (false).
+// Contacted = Email 1 of the sequence was sent today.
 export async function setContacted(companyId: number, contacted: boolean) {
   await ensureInstagramColumns();
   await sql`
     UPDATE companies
-    SET contacted_at = ${contacted ? new Date().toISOString() : null}
+    SET contacted_at = ${contacted ? new Date().toISOString() : null},
+        emails_sent = ${contacted ? 1 : 0}
     WHERE id = ${companyId};
+  `;
+}
+
+// Records how many of the 3 sequence emails have been sent (2 or 3 for the
+// follow-ups; use setContacted for Email 1).
+export async function setEmailsSent(companyId: number, sent: number) {
+  await ensureInstagramColumns();
+  await sql`
+    UPDATE companies SET emails_sent = ${sent}
+    WHERE id = ${companyId} AND contacted_at IS NOT NULL;
   `;
 }
 
@@ -144,7 +158,9 @@ export async function getRankedCompanies(city?: string): Promise<RankedCompany[]
           c.has_instagram AS auto_has_instagram,
           c.instagram_url, c.instagram_source,
           COALESCE(c.google_checked, false) AS google_checked,
-          c.manual_instagram, c.contacted_at, c.checked_at, c.created_at,
+          c.manual_instagram, c.contacted_at,
+          (CASE WHEN c.contacted_at IS NULL THEN 0 ELSE GREATEST(COALESCE(c.emails_sent, 0), 1) END)::int AS emails_sent,
+          c.checked_at, c.created_at,
           COALESCE(r.flagged_count, 0)::int AS flagged_review_count,
           (CASE WHEN COALESCE(c.manual_instagram, c.has_instagram) = false THEN 2 ELSE 0 END + COALESCE(r.flagged_count, 0))::int AS social_gap_score
         FROM companies c
@@ -162,7 +178,9 @@ export async function getRankedCompanies(city?: string): Promise<RankedCompany[]
           c.has_instagram AS auto_has_instagram,
           c.instagram_url, c.instagram_source,
           COALESCE(c.google_checked, false) AS google_checked,
-          c.manual_instagram, c.contacted_at, c.checked_at, c.created_at,
+          c.manual_instagram, c.contacted_at,
+          (CASE WHEN c.contacted_at IS NULL THEN 0 ELSE GREATEST(COALESCE(c.emails_sent, 0), 1) END)::int AS emails_sent,
+          c.checked_at, c.created_at,
           COALESCE(r.flagged_count, 0)::int AS flagged_review_count,
           (CASE WHEN COALESCE(c.manual_instagram, c.has_instagram) = false THEN 2 ELSE 0 END + COALESCE(r.flagged_count, 0))::int AS social_gap_score
         FROM companies c
