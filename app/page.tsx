@@ -224,6 +224,38 @@ export default function Home() {
   const [loadingCounts, setLoadingCounts] = useState(false);
   const [findingEmails, setFindingEmails] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  // Which Gmail account "Open in Gmail" uses (remembered on this computer).
+  const [sendFrom, setSendFrom] = useState("");
+  const [sendFromList, setSendFromList] = useState<string[]>([]);
+  const [addingAccount, setAddingAccount] = useState(false);
+  const [newAccount, setNewAccount] = useState("");
+
+  useEffect(() => {
+    try {
+      setSendFrom(localStorage.getItem("sg-send-from") || "");
+      setSendFromList(JSON.parse(localStorage.getItem("sg-send-from-list") || "[]"));
+    } catch {}
+  }, []);
+
+  function chooseSendFrom(email: string) {
+    setSendFrom(email);
+    try {
+      localStorage.setItem("sg-send-from", email);
+    } catch {}
+  }
+
+  function addSendFrom() {
+    const email = newAccount.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    const list = Array.from(new Set([...sendFromList, email]));
+    setSendFromList(list);
+    try {
+      localStorage.setItem("sg-send-from-list", JSON.stringify(list));
+    } catch {}
+    chooseSendFrom(email);
+    setNewAccount("");
+    setAddingAccount(false);
+  }
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDrafts, setBulkDrafts] = useState<BulkDraft[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -575,6 +607,8 @@ export default function Home() {
   function openInGmail(subject: string, body: string, to?: string | null) {
     const url =
       "https://mail.google.com/mail/?view=cm&fs=1" +
+      // authuser picks which signed-in Gmail account the message opens in.
+      (sendFrom ? `&authuser=${encodeURIComponent(sendFrom)}` : "") +
       (to ? `&to=${encodeURIComponent(to)}` : "") +
       `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(url, "_blank", "noopener");
@@ -1151,6 +1185,52 @@ export default function Home() {
 
             {!draftLoading && !draftError && (
               <>
+                <label style={styles.label}>Send from</label>
+                <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+                  {addingAccount ? (
+                    <>
+                      <input
+                        className="sg-field"
+                        style={{ flex: 1, minWidth: 200 }}
+                        placeholder="your.email@gmail.com"
+                        value={newAccount}
+                        autoFocus
+                        onChange={(e) => setNewAccount(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addSendFrom();
+                        }}
+                      />
+                      <button className="sg-btn sg-btn-ghost" onClick={addSendFrom}>
+                        Save
+                      </button>
+                      <button className="sg-btn sg-btn-quiet" onClick={() => setAddingAccount(false)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        className="sg-field"
+                        style={{ flex: 1, minWidth: 200 }}
+                        aria-label="Gmail account to send from"
+                        value={sendFrom}
+                        onChange={(e) => {
+                          if (e.target.value === "__add") setAddingAccount(true);
+                          else chooseSendFrom(e.target.value);
+                        }}
+                      >
+                        <option value="">Default Gmail account</option>
+                        {sendFromList.map((a) => (
+                          <option key={a} value={a}>
+                            {a}
+                          </option>
+                        ))}
+                        <option value="__add">+ Add a Gmail account…</option>
+                      </select>
+                    </>
+                  )}
+                </div>
+
                 <label style={styles.label}>To</label>
                 <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 16, alignItems: "center" }}>
                   {draftCompany.email ? (
