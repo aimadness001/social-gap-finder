@@ -20,7 +20,8 @@ export const STEP_LABEL: Record<SequenceStep, string> = {
   3: "Email 3 · Final",
 };
 
-const SIGNATURE = `Hameem
+const SIGNATURE = `Hameem Nayyer
+Cinematic Video Creator for Renovation & Construction Companies
 Instagram: @hameemnayyer`;
 
 // "Smith Renovations" -> "Smith Renovations'", "Peel Homes Inc" -> "Peel Homes Inc's"
