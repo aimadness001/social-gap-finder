@@ -48,7 +48,7 @@ export function generateSequenceEmail(step: SequenceStep, fullName: string): Ema
 
 Most renovation companies I talk to have hundreds of project photos sitting on their phone doing nothing.
 
-Meanwhile their competitors are posting cinematic content and winning clients that should be theirs.
+Meanwhile, their competitors are posting cinematic content and winning clients that should be theirs.
 
 I fix that.
 
