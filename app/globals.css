@@ -288,3 +288,42 @@ select.sg-field {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Red "N due" alert on the Contacted tab when follow-ups are waiting. */
+.sg-tab-alert {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--rust);
+  animation: sg-pulse 2s ease-in-out infinite;
+}
+@keyframes sg-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 146, 122, 0.45); }
+  50% { box-shadow: 0 0 0 5px rgba(240, 146, 122, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sg-tab-alert { animation: none; }
+}
+
+/* Alert under "Your leads" when follow-ups are due. */
+.sg-due-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--rust);
+  background: rgba(240, 146, 122, 0.12);
+  color: var(--rust);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sg-due-alert:hover { background: rgba(240, 146, 122, 0.2); }

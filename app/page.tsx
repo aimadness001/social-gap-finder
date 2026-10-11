@@ -473,6 +473,15 @@ export default function Home() {
 
   const dueCount = useMemo(() => filteredCompanies.filter(isDue).length, [filteredCompanies]);
 
+  // Earliest upcoming follow-up date (shown when nothing is due today).
+  const nextDue = useMemo(() => {
+    const dates = filteredCompanies
+      .map(nextFollowUp)
+      .filter((f): f is NonNullable<ReturnType<typeof nextFollowUp>> => f !== null && f.daysLeft > 0)
+      .map((f) => f.due.getTime());
+    return dates.length ? new Date(Math.min(...dates)) : null;
+  }, [filteredCompanies]);
+
   const tabCounts = useMemo(() => {
     const counts = {} as Record<Tab, number>;
     for (const t of TABS) counts[t.id] = filteredCompanies.filter((c) => inTab(c, t.id)).length;
@@ -699,20 +708,22 @@ export default function Home() {
           <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
             <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.leads}</span> to check,{" "}
             {tabCounts.noig} with no Instagram, {tabCounts.contacted} contacted
-            {dueCount > 0 && (
-              <>
-                {" · "}
-                <button
-                  className="sg-btn sg-btn-quiet"
-                  style={{ color: "var(--rust)", fontWeight: 600, fontSize: 14, padding: 0 }}
-                  onClick={() => setTab("contacted")}
-                  title="Show the Contacted tab — due follow-ups are at the top"
-                >
-                  {dueCount} follow-up{dueCount === 1 ? "" : "s"} due
-                </button>
-              </>
-            )}
           </p>
+          {dueCount > 0 ? (
+            <button
+              className="sg-due-alert"
+              onClick={() => setTab("contacted")}
+              title="Open the Contacted tab — due follow-ups are at the top"
+            >
+              <span aria-hidden="true">⚑</span>
+              {dueCount} follow-up{dueCount === 1 ? "" : "s"} due today
+              <span style={{ fontWeight: 500, opacity: 0.85 }}>· View →</span>
+            </button>
+          ) : nextDue ? (
+            <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--muted)" }}>
+              No follow-ups due today · next one {formatDate(nextDue.toISOString())}
+            </p>
+          ) : null}
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -767,6 +778,11 @@ export default function Home() {
             >
               {t.label}
               <span className="sg-tab-count sg-num">{tabCounts[t.id]}</span>
+              {t.id === "contacted" && dueCount > 0 && (
+                <span className="sg-tab-alert sg-num" title={`${dueCount} follow-up${dueCount === 1 ? "" : "s"} due`}>
+                  {dueCount} due
+                </span>
+              )}
             </button>
           ))}
         </div>
