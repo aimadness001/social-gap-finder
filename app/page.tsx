@@ -201,7 +201,6 @@ export default function Home() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cityFilter, setCityFilter] = useState(""); // "" = show all cities
-  const [websiteFilter, setWebsiteFilter] = useState(""); // "" | "has" | "none"
   const [tab, setTab] = useState<Tab>("leads");
   const [toast, setToast] = useState<{ id: number; message: string; undo: () => void } | null>(null);
 
@@ -413,11 +412,9 @@ export default function Home() {
   const filteredCompanies = useMemo(() => {
     return companies.filter((c) => {
       if (cityFilter && c.city !== cityFilter) return false;
-      if (websiteFilter === "has" && !c.website) return false;
-      if (websiteFilter === "none" && c.website) return false;
       return true;
     });
-  }, [companies, cityFilter, websiteFilter]);
+  }, [companies, cityFilter]);
 
   const visibleCompanies = useMemo(() => {
     const list = filteredCompanies.filter((c) => inTab(c, tab));
@@ -607,7 +604,7 @@ export default function Home() {
   }
 
 
-  const filtersActive = Boolean(cityFilter || websiteFilter);
+  const filtersActive = Boolean(cityFilter);
   const emptyMessage: Record<Tab, string> = {
     leads: "No new companies to check. Search another city to find more.",
     noig: "None yet. Click \"No IG\" on a company in Leads to move it here.",
@@ -752,16 +749,6 @@ export default function Home() {
             <option value="most">Most Google reviews</option>
             <option value="fewest">Fewest Google reviews</option>
             <option value="name">Name A–Z</option>
-          </select>
-          <select
-            className="sg-field"
-            aria-label="Filter by website"
-            value={websiteFilter}
-            onChange={(e) => setWebsiteFilter(e.target.value)}
-          >
-            <option value="">Any website</option>
-            <option value="has">Has website</option>
-            <option value="none">No website</option>
           </select>
         </div>
       </div>
