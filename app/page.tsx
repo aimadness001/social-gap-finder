@@ -809,7 +809,7 @@ export default function Home() {
                         <span style={styles.badgeGap}>
                           {c.manual_instagram === false
                             ? "No Instagram"
-                            : c.google_checked
+                            : c.google_checked || !c.website
                               ? "No Instagram found"
                               : "No IG link on website"}
                         </span>
