@@ -600,7 +600,7 @@ export default function Home() {
     leads: "No new companies to check. Search another city to find more.",
     noig: "None yet. Click \"No IG\" on a company in Leads to move it here.",
     hasig: "No companies with Instagram here yet.",
-    contacted: "No one contacted yet. Use \"Mark contacted\" after you reach out to a company.",
+    contacted: "No one contacted yet. Open a company's email and click \"Mark Email 1 as sent\" after sending it.",
   };
 
   return (
@@ -972,15 +972,7 @@ export default function Home() {
                             Undo
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          className="sg-btn sg-btn-quiet"
-                          style={{ fontSize: 13 }}
-                          onClick={() => markContacted(c, true)}
-                        >
-                          Mark contacted
-                        </button>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
