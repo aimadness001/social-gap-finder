@@ -800,16 +800,7 @@ export default function Home() {
                     {c.address && (
                       <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 3 }}>{c.address}</div>
                     )}
-                    {!c.website && (
-                      <div style={{ marginTop: 8 }}>
-                        <span
-                          style={{ ...styles.badgeGap, color: "var(--rust)", background: "transparent", borderColor: "var(--rust)" }}
-                          title="Google has no website listed for this company"
-                        >
-                          ⚑ No website
-                        </span>
-                      </div>
-                    )}
+
                   </td>
 
                   <td style={{ minWidth: 230 }}>
@@ -915,7 +906,12 @@ export default function Home() {
                         Visit website
                       </a>
                     ) : (
-                      <span style={{ color: "var(--muted)" }}>No website</span>
+                      <span
+                        style={{ ...styles.badgeGap, color: "var(--rust)", background: "transparent", borderColor: "var(--rust)" }}
+                        title="Google has no website listed for this company"
+                      >
+                        ⚑ No website
+                      </span>
                     )}
                     <div className="sg-num" style={{ color: "var(--muted)", marginTop: 4 }}>
                       {c.phone || "No phone listed"}
