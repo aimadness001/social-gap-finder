@@ -23,12 +23,18 @@ export const STEP_LABEL: Record<SequenceStep, string> = {
 const SIGNATURE = `Hameem
 Instagram: @hameemnayyer`;
 
+// "Smith Renovations" -> "Smith Renovations'", "Peel Homes Inc" -> "Peel Homes Inc's"
+function possessive(name: string): string {
+  return /s$/i.test(name.trim()) ? `${name.trim()}'` : `${name.trim()}'s`;
+}
+
 export function generateSequenceEmail(step: SequenceStep, companyName: string): EmailDraft {
   const greeting = `Hi ${companyName} team,`;
+  const companys = possessive(companyName);
 
   if (step === 1) {
     return {
-      subject: `Quick question about ${companyName}'s project photos`,
+      subject: `Quick question about ${companys} project photos`,
       body: `${greeting}
 
 Most renovation companies I talk to have hundreds of project photos sitting on their phone doing nothing.
@@ -49,7 +55,7 @@ ${SIGNATURE}`,
 
   if (step === 2) {
     return {
-      subject: `Re: Quick question about ${companyName}'s project photos`,
+      subject: `Re: Quick question about ${companys} project photos`,
       body: `${greeting}
 
 Just following up on my email from a few days ago.
