@@ -50,7 +50,7 @@ function formatDate(iso: string) {
 
 // ---- 3-email outreach sequence (Day 1 / Day 4 / Day 8) ----
 type Step = 1 | 2 | 3;
-const STEP_NAME: Record<Step, string> = { 1: "Email 1 · Cold outreach", 2: "Email 2 · Follow-up", 3: "Email 3 · Final" };
+const STEP_NAME: Record<Step, string> = { 1: "Cold email", 2: "1st follow-up", 3: "Final follow-up" };
 const STEP_DAY_OFFSET: Record<Step, number> = { 1: 0, 2: 3, 3: 7 };
 
 function sentCount(c: Company): number {
@@ -388,7 +388,7 @@ export default function Home() {
     saveEmailsSent(c, step);
     setToast({
       id: Date.now(),
-      message: step === 3 ? `${c.name}: sequence finished` : `${c.name}: Email ${step} marked as sent`,
+      message: step === 3 ? `${c.name}: sequence finished` : `${c.name}: ${STEP_NAME[step]} marked as sent`,
       undo: () => saveEmailsSent(c, previous),
     });
   }
@@ -603,7 +603,7 @@ export default function Home() {
     leads: "No new companies to check. Search another city to find more.",
     noig: "None yet. Click \"No IG\" on a company in Leads to move it here.",
     hasig: "No companies with Instagram here yet.",
-    contacted: "No one contacted yet. Open a company's email and click \"Mark Email 1 as sent\" after sending it.",
+    contacted: "No one contacted yet. Open a company's email and click \"Mark cold email as sent\" after sending it.",
   };
 
   return (
@@ -952,20 +952,20 @@ export default function Home() {
                               }}
                             >
                               {f.daysLeft < 0
-                                ? `Email ${f.step} overdue (${formatDate(f.due.toISOString())})`
+                                ? `${STEP_NAME[f.step]} overdue (${formatDate(f.due.toISOString())})`
                                 : f.daysLeft === 0
-                                  ? `Email ${f.step} due today`
-                                  : `Email ${f.step} due ${formatDate(f.due.toISOString())}`}
+                                  ? `${STEP_NAME[f.step]} due today`
+                                  : `${STEP_NAME[f.step]} due ${formatDate(f.due.toISOString())}`}
                             </div>
                             <button
                               className={`sg-btn ${due ? "sg-btn-primary" : "sg-btn-ghost"}`}
                               style={{ fontSize: 13, padding: "8px 14px" }}
                               onClick={() => handleDraftEmail(c, f.step)}
                             >
-                              {f.step === 2 ? "Draft follow-up" : "Draft final email"}
+                              {f.step === 2 ? "Draft 1st follow-up" : "Draft final follow-up"}
                             </button>
                             <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center" }}>
-                              {sent} of 3 sent
+                              {sent} of 3 emails sent
                             </div>
                           </>
                         );
@@ -1094,7 +1094,7 @@ export default function Home() {
                     if (sent >= draftStep) {
                       return (
                         <span style={{ fontSize: 13, color: "var(--sage)" }}>
-                          ✓ Email {draftStep} marked as sent
+                          ✓ {STEP_NAME[draftStep]} marked as sent
                           {draftStep === 1 && live.contacted_at ? ` on ${formatDate(live.contacted_at)}` : ""}
                         </span>
                       );
@@ -1102,7 +1102,7 @@ export default function Home() {
                     if (draftStep > sent + 1) {
                       return (
                         <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                          Send Email {sent + 1} first.
+                          Send the {STEP_NAME[(sent + 1) as Step].toLowerCase()} first.
                         </span>
                       );
                     }
@@ -1119,13 +1119,13 @@ export default function Home() {
                             });
                           }}
                         >
-                          Mark Email {draftStep} as sent
+                          Mark {STEP_NAME[draftStep].toLowerCase()} as sent
                         </button>
                         <span style={{ fontSize: 12, color: "var(--muted)" }}>
                           {draftStep === 1
                             ? "Moves the company to Contacted. Follow-up is due in 3 days."
                             : draftStep === 2
-                              ? "The final email will be due 4 days later."
+                              ? "The final follow-up will be due 4 days later."
                               : "Finishes the sequence for this company."}
                         </span>
                       </>
@@ -1144,7 +1144,7 @@ export default function Home() {
           <div className="sg-modal" style={{ ...styles.modal, maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div style={styles.modalTitle}>
-                {tab === "contacted" ? "Follow-ups due today" : "Email 1 for all leads in this view"}
+                {tab === "contacted" ? "Follow-ups due today" : "Cold emails for all leads in this view"}
               </div>
               <button className="sg-btn sg-btn-ghost" onClick={closeBulkModal}>
                 Close
