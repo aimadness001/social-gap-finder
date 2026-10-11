@@ -605,9 +605,10 @@ export default function Home() {
 
   // Opens a new Gmail message in a new tab with subject and body filled in.
   function openInGmail(subject: string, body: string, to?: string | null) {
+    // /mail/u/<address>/ opens the message in that signed-in Gmail account
+    // (authuser is added too, as a backup Gmail also understands).
     const url =
-      "https://mail.google.com/mail/?view=cm&fs=1" +
-      // authuser picks which signed-in Gmail account the message opens in.
+      `https://mail.google.com/mail/${sendFrom ? `u/${encodeURIComponent(sendFrom)}/` : ""}?view=cm&fs=1` +
       (sendFrom ? `&authuser=${encodeURIComponent(sendFrom)}` : "") +
       (to ? `&to=${encodeURIComponent(to)}` : "") +
       `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
