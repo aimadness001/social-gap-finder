@@ -14,7 +14,8 @@ export type PlaceDetails = {
   phone: string | null;
   website: string | null;
   address: string | null;
-  reviews: { text: string; rating: number | null; publishTime: string | null }[];
+  rating: number | null; // Google star rating, e.g. 4.8
+  reviewCount: number | null; // total number of Google reviews
 };
 
 function requireApiKey() {
@@ -55,7 +56,7 @@ export async function searchPlaces(query: string, location: string): Promise<Pla
   }));
 }
 
-// Fetches phone, website, address, and up to 5 reviews for a single place.
+// Fetches phone, website, address, star rating and total review count for a single place.
 export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
   requireApiKey();
 
@@ -65,7 +66,8 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
     "nationalPhoneNumber",
     "websiteUri",
     "formattedAddress",
-    "reviews",
+    "rating",
+    "userRatingCount",
   ].join(",");
 
   const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
@@ -82,7 +84,6 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
   }
 
   const data = await res.json();
-  const reviews = (data.reviews || []) as any[];
 
   return {
     placeId: data.id,
@@ -90,10 +91,32 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
     phone: data.nationalPhoneNumber || null,
     website: data.websiteUri || null,
     address: data.formattedAddress || null,
-    reviews: reviews.map((r) => ({
-      text: r.text?.text || "",
-      rating: typeof r.rating === "number" ? r.rating : null,
-      publishTime: r.publishTime || null,
-    })),
+    rating: typeof data.rating === "number" ? data.rating : null,
+    // A company with no reviews comes back without this field.
+    reviewCount: typeof data.userRatingCount === "number" ? data.userRatingCount : 0,
+  };
+}
+
+// Fetches only the star rating and total review count (used to fill these in
+// for companies saved before the app started collecting them).
+export async function getPlaceRating(
+  placeId: string
+): Promise<{ rating: number | null; reviewCount: number }> {
+  requireApiKey();
+  const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+    method: "GET",
+    headers: {
+      "X-Goog-Api-Key": API_KEY as string,
+      "X-Goog-FieldMask": "rating,userRatingCount",
+    },
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Google Places details failed (${res.status}): ${errText}`);
+  }
+  const data = await res.json();
+  return {
+    rating: typeof data.rating === "number" ? data.rating : null,
+    reviewCount: typeof data.userRatingCount === "number" ? data.userRatingCount : 0,
   };
 }

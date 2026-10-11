@@ -17,18 +17,11 @@ type Company = {
   manual_instagram: boolean | null;
   contacted_at: string | null; // date Email 1 was sent
   emails_sent: number; // how many of the 3 sequence emails were sent (0-3)
-  flagged_review_count: number;
-  social_gap_score: number;
+  google_rating: number | null; // Google star rating, e.g. 4.8
+  google_review_count: number | null; // total Google reviews (null = not loaded yet)
 };
 
-type Review = {
-  id: number;
-  review_text: string | null;
-  rating: number | null;
-  review_date: string | null;
-  flag_reason: string | null;
-  flagged_social_complaint?: boolean;
-};
+type SortBy = "most" | "fewest" | "name";
 
 type Tab = "leads" | "noig" | "hasig" | "contacted";
 
@@ -225,11 +218,8 @@ export default function Home() {
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
-  const [reviewsCompany, setReviewsCompany] = useState<Company | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsError, setReviewsError] = useState<string | null>(null);
-  const [reviewsShowingAll, setReviewsShowingAll] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>("most");
+  const [loadingCounts, setLoadingCounts] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDrafts, setBulkDrafts] = useState<BulkDraft[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -300,13 +290,7 @@ export default function Home() {
       prev.map((c) => {
         if (c.id !== company.id) return c;
         const finalAnswer = value === null ? c.auto_has_instagram : value;
-        const gapPoints = (v: boolean | null) => (v === false ? 2 : 0);
-        return {
-          ...c,
-          manual_instagram: value,
-          has_instagram: finalAnswer,
-          social_gap_score: c.social_gap_score - gapPoints(c.has_instagram) + gapPoints(finalAnswer),
-        };
+        return { ...c, manual_instagram: value, has_instagram: finalAnswer };
       })
     );
     try {
@@ -437,14 +421,55 @@ export default function Home() {
 
   const visibleCompanies = useMemo(() => {
     const list = filteredCompanies.filter((c) => inTab(c, tab));
-    if (tab !== "contacted") return list;
+    if (tab !== "contacted") {
+      const count = (c: Company) => c.google_review_count ?? -1; // not loaded yet = last
+      return [...list].sort((a, b) =>
+        sortBy === "name"
+          ? a.name.localeCompare(b.name)
+          : sortBy === "fewest"
+            ? (a.google_review_count ?? 1e9) - (b.google_review_count ?? 1e9) || a.name.localeCompare(b.name)
+            : count(b) - count(a) || a.name.localeCompare(b.name)
+      );
+    }
     // Contacted tab: follow-ups due soonest at the top, finished sequences last.
     const order = (c: Company) => {
       const f = nextFollowUp(c);
       return f ? f.daysLeft : 9999;
     };
     return [...list].sort((a, b) => order(a) - order(b));
-  }, [filteredCompanies, tab]);
+  }, [filteredCompanies, tab, sortBy]);
+
+  const missingCounts = useMemo(() => companies.filter((c) => c.google_review_count === null).length, [companies]);
+
+  // Fills in Google rating + review count for companies saved before the app
+  // collected them (40 per round, repeats until done).
+  async function handleLoadReviewCounts() {
+    setLoadingCounts(true);
+    setError(null);
+    setStatus(null);
+    try {
+      let rounds = 0;
+      while (rounds < 10) {
+        rounds++;
+        const res = await fetch("/api/review-counts", { method: "POST" });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error);
+        await loadCompanies();
+        if (data.remaining === 0 || data.updated === 0) {
+          setStatus(
+            data.remaining === 0
+              ? "Google review counts loaded for all companies."
+              : `Loaded what Google returned; ${data.remaining} still missing.`
+          );
+          break;
+        }
+      }
+    } catch (err: any) {
+      setError(`Couldn't load review counts: ${err.message}`);
+    } finally {
+      setLoadingCounts(false);
+    }
+  }
 
   const dueCount = useMemo(() => filteredCompanies.filter(isDue).length, [filteredCompanies]);
 
@@ -508,13 +533,13 @@ export default function Home() {
     const leads =
       tab === "contacted"
         ? visibleCompanies.filter(isDue)
-        : visibleCompanies.filter((c) => c.social_gap_score > 0);
+        : visibleCompanies;
 
     if (leads.length === 0) {
       setBulkError(
         tab === "contacted"
           ? "No follow-ups are due today in this view."
-          : "No companies with a social gap score above 0 in the current view — nothing to draft."
+          : "No companies in the current view — nothing to draft."
       );
       setBulkOpen(true);
       setBulkDrafts([]);
@@ -572,28 +597,6 @@ export default function Home() {
     }
   }
 
-  async function handleViewReviews(company: Company, all: boolean) {
-    setReviewsCompany(company);
-    setReviews([]);
-    setReviewsError(null);
-    setReviewsShowingAll(all);
-    setReviewsLoading(true);
-    try {
-      const url = `/api/companies/${company.id}/reviews${all ? "?all=true" : ""}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
-      setReviews(data.reviews);
-    } catch (err: any) {
-      setReviewsError(err.message);
-    } finally {
-      setReviewsLoading(false);
-    }
-  }
-
-  function closeReviewsModal() {
-    setReviewsCompany(null);
-  }
 
   const filtersActive = Boolean(cityFilter || websiteFilter);
   const emptyMessage: Record<Tab, string> = {
@@ -658,6 +661,16 @@ export default function Home() {
           <button className="sg-btn sg-btn-quiet" onClick={handleExport}>
             Export CSV
           </button>
+          {missingCounts > 0 && (
+            <button
+              className="sg-btn sg-btn-quiet"
+              onClick={handleLoadReviewCounts}
+              disabled={loadingCounts}
+              title="Fetches the Google star rating and number of reviews for companies saved earlier"
+            >
+              {loadingCounts ? "Loading review counts…" : `Load Google review counts (${missingCounts})`}
+            </button>
+          )}
           <button
             className="sg-btn sg-btn-quiet"
             style={{ marginLeft: "auto" }}
@@ -718,6 +731,18 @@ export default function Home() {
           </select>
           <select
             className="sg-field"
+            aria-label="Sort companies"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            disabled={tab === "contacted"}
+            title={tab === "contacted" ? "Contacted is sorted by follow-up due date" : undefined}
+          >
+            <option value="most">Most Google reviews</option>
+            <option value="fewest">Fewest Google reviews</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          <select
+            className="sg-field"
             aria-label="Filter by website"
             value={websiteFilter}
             onChange={(e) => setWebsiteFilter(e.target.value)}
@@ -751,8 +776,7 @@ export default function Home() {
               <tr>
                 <th>Company</th>
                 <th>Instagram</th>
-                <th>Reviews</th>
-                <th title="Higher = bigger social media gap = better lead">Score</th>
+                <th>Google reviews</th>
                 <th>Contact</th>
                 <th aria-label="Actions"></th>
               </tr>
@@ -760,7 +784,7 @@ export default function Home() {
             <tbody>
               {visibleCompanies.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: "56px 16px", textAlign: "center", color: "var(--muted)" }}>
+                  <td colSpan={5} style={{ padding: "56px 16px", textAlign: "center", color: "var(--muted)" }}>
                     {companies.length === 0
                       ? "No companies yet. Search a city above to find your first leads."
                       : filtersActive && filteredCompanies.length === 0
@@ -852,47 +876,27 @@ export default function Home() {
                     </div>
                   </td>
 
-                  <td>
-                    <div className="sg-num" style={{ fontSize: 14 }}>
-                      {c.flagged_review_count > 0 ? (
-                        <span style={{ color: "var(--brass)", fontWeight: 600 }}>
-                          {c.flagged_review_count} flagged
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--muted)" }}>None flagged</span>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                      {c.flagged_review_count > 0 && (
-                        <button className="sg-btn sg-btn-quiet" style={{ fontSize: 13 }} onClick={() => handleViewReviews(c, false)}>
-                          View flagged
-                        </button>
-                      )}
-                      <button className="sg-btn sg-btn-quiet" style={{ fontSize: 13 }} onClick={() => handleViewReviews(c, true)}>
-                        View all
-                      </button>
-                    </div>
-                  </td>
 
-                  <td>
-                    <span
-                      className="sg-num"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 34,
-                        height: 34,
-                        borderRadius: 999,
-                        fontWeight: 700,
-                        fontSize: 15,
-                        background: c.social_gap_score > 0 ? "var(--brass-soft)" : "transparent",
-                        color: c.social_gap_score > 0 ? "var(--brass)" : "var(--muted)",
-                        border: c.social_gap_score > 0 ? "1px solid var(--brass-border)" : "1px solid var(--line)",
-                      }}
-                    >
-                      {c.social_gap_score}
-                    </span>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {c.google_review_count === null ? (
+                      <span style={{ fontSize: 13, color: "var(--muted)" }} title="Click “Load Google review counts” above">
+                        Not loaded
+                      </span>
+                    ) : c.google_review_count === 0 ? (
+                      <span style={{ fontSize: 13, color: "var(--muted)" }}>No reviews</span>
+                    ) : (
+                      <>
+                        <div className="sg-num" style={{ fontSize: 16, fontWeight: 600 }}>
+                          {c.google_review_count.toLocaleString()}
+                          <span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)" }}> reviews</span>
+                        </div>
+                        {c.google_rating !== null && (
+                          <div className="sg-num" style={{ fontSize: 13, color: "var(--brass)", marginTop: 3 }}>
+                            ★ {c.google_rating.toFixed(1)}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </td>
 
                   <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>
@@ -1128,52 +1132,6 @@ export default function Home() {
         </div>
       )}
 
-      {reviewsCompany && (
-        <div className="sg-overlay" style={styles.overlay} onClick={closeReviewsModal}>
-          <div className="sg-modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <div style={styles.modalTitle}>
-                {reviewsShowingAll ? "All reviews" : "Flagged reviews"} — {reviewsCompany.name}
-              </div>
-              <button className="sg-btn sg-btn-ghost" onClick={closeReviewsModal}>
-                Close
-              </button>
-            </div>
-
-            {reviewsLoading && <div style={styles.status}>Loading…</div>}
-            {reviewsError && <div style={styles.error}>{reviewsError}</div>}
-
-            {!reviewsLoading && !reviewsError && reviews.length === 0 && (
-              <div style={styles.status}>
-                {reviewsShowingAll
-                  ? "No reviews were saved for this company (Google may not have returned any)."
-                  : "No flagged reviews found."}
-              </div>
-            )}
-
-            {!reviewsLoading &&
-              !reviewsError &&
-              reviews.map((r) => (
-                <div
-                  key={r.id}
-                  style={{
-                    ...styles.subCard,
-                    borderColor: r.flagged_social_complaint ? "var(--brass)" : "var(--line)",
-                  }}
-                >
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-                    {r.rating !== null && <span>Rating: {r.rating}/5</span>}
-                    {r.review_date && <span style={{ marginLeft: 12 }}>{r.review_date}</span>}
-                  </div>
-                  <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 6 }}>{r.review_text}</div>
-                  {r.flag_reason && (
-                    <div style={{ fontSize: 11, color: "var(--brass)" }}>Flagged: {r.flag_reason}</div>
-                  )}
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {bulkOpen && (
         <div className="sg-overlay" style={styles.overlay} onClick={closeBulkModal}>

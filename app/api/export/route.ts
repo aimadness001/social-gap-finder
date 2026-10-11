@@ -25,8 +25,9 @@ export async function GET(req: Request) {
       "Has Instagram",
       "Instagram Link",
       "Checked By You",
-      "Flagged Review Count",
-      "Social Gap Score",
+      "Google Rating",
+      "Google Reviews",
+      "Emails Sent",
     ];
 
     const rows = companies.map((c) =>
@@ -39,8 +40,9 @@ export async function GET(req: Request) {
         c.has_instagram === null ? "unknown" : c.has_instagram,
         c.instagram_url,
         c.manual_instagram === null ? "" : "yes",
-        c.flagged_review_count,
-        c.social_gap_score,
+        c.google_rating ?? "",
+        c.google_review_count ?? "",
+        c.emails_sent,
       ]
         .map(csvEscape)
         .join(",")

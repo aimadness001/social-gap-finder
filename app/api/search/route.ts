@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { searchPlaces, getPlaceDetails } from "@/lib/googlePlaces";
 import { checkForInstagram } from "@/lib/instagramCheck";
 import { searchInstagramOnGoogle } from "@/lib/instagramSearch";
-import { checkReview } from "@/lib/complaintDetection";
-import { upsertCompany, clearReviewsForCompany, insertReview } from "@/lib/db";
+import { upsertCompany } from "@/lib/db";
 
 // Allow this route up to 60s — checking several companies' websites/reviews
 // per run takes longer than Vercel's default 10s function timeout.
@@ -87,31 +86,16 @@ export async function POST(req: Request) {
           instagram_url: instagramUrl,
           instagram_source: instagramSource,
           google_checked: googleChecked,
+          google_rating: details.rating,
+          google_review_count: details.reviewCount,
         });
 
-        await clearReviewsForCompany(companyId);
-
-        let flaggedCount = 0;
-        for (const review of details.reviews) {
-          if (!review.text) continue;
-          const check = checkReview(review.text, review.rating);
-          if (check.flagged) flaggedCount++;
-          await insertReview({
-            company_id: companyId,
-            source: "google",
-            review_text: review.text,
-            rating: review.rating,
-            review_date: review.publishTime,
-            flagged_social_complaint: check.flagged,
-            flag_reason: check.reason,
-          });
-        }
-
         results.push({
+          id: companyId,
           name: details.name,
           hasInstagram,
           instagramUrl,
-          flaggedReviewCount: flaggedCount,
+          googleReviewCount: details.reviewCount,
         });
       } catch (err: any) {
         // One bad place (e.g. details fetch failure) shouldn't kill the whole batch.
