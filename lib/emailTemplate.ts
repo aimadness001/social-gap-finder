@@ -28,7 +28,16 @@ function possessive(name: string): string {
   return /s$/i.test(name.trim()) ? `${name.trim()}'` : `${name.trim()}'s`;
 }
 
-export function generateSequenceEmail(step: SequenceStep, companyName: string): EmailDraft {
+// Google names often carry extra keywords: "Teamwork Home Designs - General
+// Contractor Austin" -> "Teamwork Home Designs". Only splits on spaced
+// separators, so names like "Jean-Paul Renovations" stay whole.
+export function cleanCompanyName(name: string): string {
+  const first = name.split(/\s+[-–—|•]\s+|\s*\|\s*|:\s+/)[0].trim();
+  return first.length >= 2 ? first : name.trim();
+}
+
+export function generateSequenceEmail(step: SequenceStep, fullName: string): EmailDraft {
+  const companyName = cleanCompanyName(fullName);
   const greeting = `Hi ${companyName} team,`;
   const companys = possessive(companyName);
 

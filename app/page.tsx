@@ -19,6 +19,8 @@ type Company = {
   emails_sent: number; // how many of the 3 sequence emails were sent (0-3)
   google_rating: number | null; // Google star rating, e.g. 4.8
   google_review_count: number | null; // total Google reviews (null = not loaded yet)
+  email: string | null; // best email found on their website
+  email_checked: boolean; // their website has been scanned for an email
 };
 
 type SortBy = "most" | "fewest" | "name";
@@ -220,6 +222,8 @@ export default function Home() {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("most");
   const [loadingCounts, setLoadingCounts] = useState(false);
+  const [findingEmails, setFindingEmails] = useState(false);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDrafts, setBulkDrafts] = useState<BulkDraft[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -473,6 +477,43 @@ export default function Home() {
 
   const dueCount = useMemo(() => filteredCompanies.filter(isDue).length, [filteredCompanies]);
 
+  const emailsToFind = useMemo(
+    () => companies.filter((c) => c.website && !c.email_checked).length,
+    [companies]
+  );
+
+  // Scans websites of companies saved before email finding existed.
+  async function handleFindEmails() {
+    setFindingEmails(true);
+    setError(null);
+    setStatus(null);
+    let totalFound = 0;
+    try {
+      for (let round = 0; round < 15; round++) {
+        const res = await fetch("/api/find-emails", { method: "POST" });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error);
+        totalFound += data.found;
+        await loadCompanies();
+        if (data.remaining === 0 || data.checked === 0) {
+          setStatus(
+            `Found ${totalFound} email${totalFound === 1 ? "" : "s"}.` +
+              (data.remaining > 0 ? ` ${data.remaining} websites still to check — click again.` : "")
+          );
+          break;
+        }
+      }
+    } catch (err: any) {
+      setError(`Couldn't finish finding emails: ${err.message}`);
+    } finally {
+      setFindingEmails(false);
+    }
+  }
+
+  function emailSearchUrl(c: Company) {
+    return `https://www.google.com/search?q=${encodeURIComponent(`"${c.name}" ${c.city} email`)}`;
+  }
+
   // Earliest upcoming follow-up date (shown when nothing is due today).
   const nextDue = useMemo(() => {
     const dates = filteredCompanies
@@ -523,7 +564,7 @@ export default function Home() {
     // Leading "?" with no address before it — opens a new blank-recipient
     // message with subject/body prefilled, ready for you to add the address
     // and hit send yourself.
-    window.location.href = `mailto:?subject=${subjectParam}&body=${bodyParam}`;
+    window.location.href = `mailto:${draftCompany?.email ? encodeURIComponent(draftCompany.email) : ""}?subject=${subjectParam}&body=${bodyParam}`;
   }
 
   function handleOpenInEmailApp() {
@@ -531,9 +572,10 @@ export default function Home() {
   }
 
   // Opens a new Gmail message in a new tab with subject and body filled in.
-  function openInGmail(subject: string, body: string) {
+  function openInGmail(subject: string, body: string, to?: string | null) {
     const url =
       "https://mail.google.com/mail/?view=cm&fs=1" +
+      (to ? `&to=${encodeURIComponent(to)}` : "") +
       `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(url, "_blank", "noopener");
   }
@@ -670,6 +712,16 @@ export default function Home() {
           <button className="sg-btn sg-btn-quiet" onClick={handleExport}>
             Export CSV
           </button>
+          {emailsToFind > 0 && (
+            <button
+              className="sg-btn sg-btn-quiet"
+              onClick={handleFindEmails}
+              disabled={findingEmails}
+              title="Scans the websites of companies saved earlier for an email address"
+            >
+              {findingEmails ? "Finding emails…" : `Find emails (${emailsToFind})`}
+            </button>
+          )}
           {missingCounts > 0 && (
             <button
               className="sg-btn sg-btn-quiet"
@@ -933,6 +985,35 @@ export default function Home() {
                     <div className="sg-num" style={{ color: "var(--muted)", marginTop: 4 }}>
                       {c.phone || "No phone listed"}
                     </div>
+                    <div style={{ marginTop: 6 }}>
+                      {c.email ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ color: "var(--text)" }} title={c.email}>
+                            {c.email.length > 28 ? c.email.slice(0, 26) + "…" : c.email}
+                          </span>
+                          <button
+                            className="sg-btn sg-btn-quiet"
+                            style={{ fontSize: 12, padding: 0, color: copiedId === c.id ? "var(--sage)" : "var(--brass)" }}
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(c.email!);
+                                setCopiedId(c.id);
+                                setTimeout(() => setCopiedId((v) => (v === c.id ? null : v)), 1800);
+                              } catch {}
+                            }}
+                          >
+                            {copiedId === c.id ? "Copied ✓" : "Copy"}
+                          </button>
+                        </span>
+                      ) : c.email_checked || !c.website ? (
+                        <span style={{ color: "var(--muted)" }}>
+                          No email found ·{" "}
+                          <a href={emailSearchUrl(c)} target="_blank" rel="noreferrer">
+                            Search
+                          </a>
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
 
                   <td style={{ textAlign: "right" }}>
@@ -1070,6 +1151,25 @@ export default function Home() {
 
             {!draftLoading && !draftError && (
               <>
+                <label style={styles.label}>To</label>
+                <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 16, alignItems: "center" }}>
+                  {draftCompany.email ? (
+                    <>
+                      <input className="sg-field" style={{ flex: 1 }} value={draftCompany.email} readOnly />
+                      <button className="sg-btn sg-btn-ghost" onClick={() => handleCopy(draftCompany.email!, "Email address")}>
+                        Copy
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                      No email found on their website ·{" "}
+                      <a href={emailSearchUrl(draftCompany)} target="_blank" rel="noreferrer">
+                        Search Google for it
+                      </a>
+                    </span>
+                  )}
+                </div>
+
                 <label style={styles.label}>Subject</label>
                 <div style={{ display: "flex", gap: 8, marginTop: 4, marginBottom: 16 }}>
                   <input className="sg-field" style={{ flex: 1 }} value={draftSubject} readOnly />
@@ -1084,7 +1184,7 @@ export default function Home() {
                   <button className="sg-btn sg-btn-ghost" onClick={() => handleCopy(draftBody, "Body")}>
                     Copy body
                   </button>
-                  <button className="sg-btn sg-btn-primary" onClick={() => openInGmail(draftSubject, draftBody)}>
+                  <button className="sg-btn sg-btn-primary" onClick={() => openInGmail(draftSubject, draftBody, draftCompany.email)}>
                     Open in Gmail
                   </button>
                   <button className="sg-btn sg-btn-quiet" onClick={handleOpenInEmailApp}>
@@ -1191,6 +1291,8 @@ export default function Home() {
                   ) : (
                     <>
                       <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>
+                        To: {companies.find((x) => x.id === d.companyId)?.email || "no email found"}
+                        <br />
                         Subject: {d.subject}
                       </div>
                       <textarea
@@ -1211,7 +1313,7 @@ export default function Home() {
                         >
                           Copy body
                         </button>
-                        <button className="sg-btn sg-btn-primary" onClick={() => openInGmail(d.subject, d.body)}>
+                        <button className="sg-btn sg-btn-primary" onClick={() => openInGmail(d.subject, d.body, companies.find((x) => x.id === d.companyId)?.email)}>
                           Open in Gmail
                         </button>
                         {(() => {
@@ -1237,7 +1339,7 @@ export default function Home() {
               <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
                 {tab === "contacted"
                   ? "Only follow-ups that are due today or overdue are included."
-                  : "Only companies with a social gap score above 0 in your current filtered view are included."}
+                  : "Every company in the current tab and filters is included."}
               </p>
             )}
           </div>

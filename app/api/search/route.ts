@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchPlaces, getPlaceDetails } from "@/lib/googlePlaces";
-import { checkForInstagram } from "@/lib/instagramCheck";
+import { scanWebsite } from "@/lib/instagramCheck";
 import { searchInstagramOnGoogle } from "@/lib/instagramSearch";
 import { upsertCompany } from "@/lib/db";
 
@@ -49,7 +49,9 @@ export async function POST(req: Request) {
 
         // Step 1: check their website for an Instagram link.
         // string = link found, false = no link, null = site unreachable.
-        const websiteResult = details.website ? await checkForInstagram(details.website) : false;
+        // The same visit also looks for an email address.
+        const scan = await scanWebsite(details.website);
+        const websiteResult = details.website ? scan.instagram : false;
 
         let hasInstagram: boolean | null = websiteResult === null ? null : Boolean(websiteResult);
         let instagramUrl: string | null = typeof websiteResult === "string" ? websiteResult : null;
@@ -88,6 +90,8 @@ export async function POST(req: Request) {
           google_checked: googleChecked,
           google_rating: details.rating,
           google_review_count: details.reviewCount,
+          email: scan.email,
+          email_checked: scan.reachable,
         });
 
         results.push({

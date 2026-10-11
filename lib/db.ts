@@ -20,6 +20,8 @@ export type Company = {
   emails_sent: number; // how many of the 3 outreach emails you've sent (0-3)
   google_rating: number | null; // Google star rating, e.g. 4.8
   google_review_count: number | null; // total Google reviews (null = not loaded yet)
+  email: string | null; // best email address found on their website
+  email_checked: boolean; // true once their website was scanned for an email
   checked_at: string | null;
   created_at: string;
 };
@@ -40,6 +42,8 @@ export function ensureInstagramColumns(): Promise<void> {
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS emails_sent INT DEFAULT 0;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS google_rating REAL;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS google_review_count INT;`;
+      await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT;`;
+      await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS email_checked BOOLEAN DEFAULT FALSE;`;
     })().catch((err) => {
       columnsReady = null; // retry next time
       throw err;
@@ -106,15 +110,17 @@ export async function upsertCompany(company: {
   google_checked: boolean;
   google_rating: number | null;
   google_review_count: number | null;
+  email: string | null;
+  email_checked: boolean;
 }): Promise<number> {
   await ensureInstagramColumns();
   // Note: manual_instagram (your own answer) is never overwritten by a re-search.
   const result = await sql<{ id: number }>`
     INSERT INTO companies (place_id, name, phone, website, address, city, has_instagram,
-      instagram_url, instagram_source, google_checked, google_rating, google_review_count, checked_at)
+      instagram_url, instagram_source, google_checked, google_rating, google_review_count, email, email_checked, checked_at)
     VALUES (${company.place_id}, ${company.name}, ${company.phone}, ${company.website}, ${company.address}, ${company.city}, ${company.has_instagram},
       ${company.instagram_url}, ${company.instagram_source}, ${company.google_checked},
-      ${company.google_rating}, ${company.google_review_count}, NOW())
+      ${company.google_rating}, ${company.google_review_count}, ${company.email}, ${company.email_checked}, NOW())
     ON CONFLICT (place_id) DO UPDATE SET
       name = EXCLUDED.name,
       phone = EXCLUDED.phone,
@@ -126,6 +132,9 @@ export async function upsertCompany(company: {
       google_checked = EXCLUDED.google_checked,
       google_rating = EXCLUDED.google_rating,
       google_review_count = EXCLUDED.google_review_count,
+      -- keep an email found earlier if this run couldn't read the site
+      email = COALESCE(EXCLUDED.email, companies.email),
+      email_checked = EXCLUDED.email_checked OR companies.email_checked,
       checked_at = NOW()
     RETURNING id;
   `;
@@ -170,6 +179,7 @@ export async function getRankedCompanies(city?: string): Promise<RankedCompany[]
           c.manual_instagram, c.contacted_at,
           (CASE WHEN c.contacted_at IS NULL THEN 0 ELSE GREATEST(COALESCE(c.emails_sent, 0), 1) END)::int AS emails_sent,
           c.google_rating, c.google_review_count,
+          c.email, COALESCE(c.email_checked, false) AS email_checked,
           c.checked_at, c.created_at,
           COALESCE(r.flagged_count, 0)::int AS flagged_review_count,
           (CASE WHEN COALESCE(c.manual_instagram, c.has_instagram) = false THEN 2 ELSE 0 END + COALESCE(r.flagged_count, 0))::int AS social_gap_score
@@ -191,6 +201,7 @@ export async function getRankedCompanies(city?: string): Promise<RankedCompany[]
           c.manual_instagram, c.contacted_at,
           (CASE WHEN c.contacted_at IS NULL THEN 0 ELSE GREATEST(COALESCE(c.emails_sent, 0), 1) END)::int AS emails_sent,
           c.google_rating, c.google_review_count,
+          c.email, COALESCE(c.email_checked, false) AS email_checked,
           c.checked_at, c.created_at,
           COALESCE(r.flagged_count, 0)::int AS flagged_review_count,
           (CASE WHEN COALESCE(c.manual_instagram, c.has_instagram) = false THEN 2 ELSE 0 END + COALESCE(r.flagged_count, 0))::int AS social_gap_score
