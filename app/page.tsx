@@ -707,7 +707,8 @@ export default function Home() {
           </h2>
           <p className="sg-num" style={{ margin: "6px 0 0", color: "var(--muted)", fontSize: 14 }}>
             <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.leads}</span> to check,{" "}
-            {tabCounts.noig} with no Instagram, {tabCounts.contacted} contacted
+            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.noig}</span> with no Instagram,{" "}
+            <span style={{ color: "var(--brass)", fontWeight: 600 }}>{tabCounts.contacted}</span> contacted
           </p>
           {dueCount > 0 ? (
             <button
@@ -721,7 +722,7 @@ export default function Home() {
             </button>
           ) : nextDue ? (
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--muted)" }}>
-              No follow-ups due today · next one {formatDate(nextDue.toISOString())}
+              No follow-ups due today · next one <span style={{ color: "var(--brass)", fontWeight: 600 }}>{formatDate(nextDue.toISOString())}</span>
             </p>
           ) : null}
         </div>
