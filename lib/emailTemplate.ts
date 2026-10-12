@@ -22,7 +22,9 @@ export const STEP_LABEL: Record<SequenceStep, string> = {
 
 const SIGNATURE = `Hameem Nayyer
 Cinematic Video Creator for Renovation & Construction Companies
-Instagram: @hameemnayyer`;
+Instagram: @hameemnayyer
+
+If you'd prefer not to hear from me, just reply "no thanks."`;
 
 // "Smith Renovations" -> "Smith Renovations'", "Peel Homes Inc" -> "Peel Homes Inc's"
 function possessive(name: string): string {
