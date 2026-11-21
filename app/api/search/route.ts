@@ -93,6 +93,7 @@ export async function POST(req: Request) {
           email: scan.email,
           email_checked: scan.reachable,
           email_scan_version: scan.reachable ? EMAIL_SCAN_VERSION : 0,
+          search_query: query,
         });
 
         results.push({

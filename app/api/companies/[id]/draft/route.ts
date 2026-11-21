@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@vercel/postgres";
 import { ensureInstagramColumns, Company } from "@/lib/db";
-import { generateSequenceEmail, SequenceStep } from "@/lib/emailTemplate";
+import { generateSequenceEmail, pickTemplate, SequenceStep, TEMPLATE_LABEL } from "@/lib/emailTemplate";
 
 // GET /api/companies/:id/draft?step=1|2|3
 // Without ?step, returns the next email in the sequence for this company.
@@ -23,8 +23,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const requested = parseInt(new URL(req.url).searchParams.get("step") || "", 10);
     const step = ([1, 2, 3].includes(requested) ? requested : Math.min(sent + 1, 3)) as SequenceStep;
 
-    const draft = generateSequenceEmail(step, company.name);
-    return NextResponse.json({ ok: true, step, draft });
+    const template = pickTemplate(company.search_query, company.name);
+    const draft = generateSequenceEmail(step, company.name, template);
+    return NextResponse.json({ ok: true, step, template, templateLabel: TEMPLATE_LABEL[template], draft });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }

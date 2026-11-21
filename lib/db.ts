@@ -22,6 +22,7 @@ export type Company = {
   google_review_count: number | null; // total Google reviews (null = not loaded yet)
   email: string | null; // best email address found on their website
   email_checked: boolean; // true once their website was scanned for an email
+  search_query: string | null; // the search that found this company (e.g. "plumber")
   checked_at: string | null;
   created_at: string;
 };
@@ -45,6 +46,7 @@ export function ensureInstagramColumns(): Promise<void> {
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS email_checked BOOLEAN DEFAULT FALSE;`;
       await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS email_scan_version INT DEFAULT 0;`;
+      await sql`ALTER TABLE companies ADD COLUMN IF NOT EXISTS search_query TEXT;`;
     })().catch((err) => {
       columnsReady = null; // retry next time
       throw err;
@@ -114,15 +116,16 @@ export async function upsertCompany(company: {
   email: string | null;
   email_checked: boolean;
   email_scan_version: number;
+  search_query: string | null;
 }): Promise<number> {
   await ensureInstagramColumns();
   // Note: manual_instagram (your own answer) is never overwritten by a re-search.
   const result = await sql<{ id: number }>`
     INSERT INTO companies (place_id, name, phone, website, address, city, has_instagram,
-      instagram_url, instagram_source, google_checked, google_rating, google_review_count, email, email_checked, email_scan_version, checked_at)
+      instagram_url, instagram_source, google_checked, google_rating, google_review_count, email, email_checked, email_scan_version, search_query, checked_at)
     VALUES (${company.place_id}, ${company.name}, ${company.phone}, ${company.website}, ${company.address}, ${company.city}, ${company.has_instagram},
       ${company.instagram_url}, ${company.instagram_source}, ${company.google_checked},
-      ${company.google_rating}, ${company.google_review_count}, ${company.email}, ${company.email_checked}, ${company.email_scan_version}, NOW())
+      ${company.google_rating}, ${company.google_review_count}, ${company.email}, ${company.email_checked}, ${company.email_scan_version}, ${company.search_query}, NOW())
     ON CONFLICT (place_id) DO UPDATE SET
       name = EXCLUDED.name,
       phone = EXCLUDED.phone,
@@ -138,6 +141,7 @@ export async function upsertCompany(company: {
       email = COALESCE(EXCLUDED.email, companies.email),
       email_checked = EXCLUDED.email_checked OR companies.email_checked,
       email_scan_version = GREATEST(EXCLUDED.email_scan_version, COALESCE(companies.email_scan_version, 0)),
+      search_query = COALESCE(EXCLUDED.search_query, companies.search_query),
       checked_at = NOW()
     RETURNING id;
   `;

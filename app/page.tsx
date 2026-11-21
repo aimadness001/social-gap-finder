@@ -217,6 +217,7 @@ export default function Home() {
   const [draftStep, setDraftStep] = useState<Step>(1);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
+  const [draftTemplate, setDraftTemplate] = useState("");
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -567,6 +568,7 @@ export default function Home() {
     setDraftStep(s);
     setDraftSubject("");
     setDraftBody("");
+    setDraftTemplate("");
     setDraftError(null);
     setCopyStatus(null);
     setDraftLoading(true);
@@ -576,6 +578,7 @@ export default function Home() {
       if (!data.ok) throw new Error(data.error);
       setDraftSubject(data.draft.subject);
       setDraftBody(data.draft.body);
+      setDraftTemplate(data.templateLabel || "");
     } catch (err: any) {
       setDraftError(err.message);
     } finally {
@@ -1152,7 +1155,12 @@ export default function Home() {
         <div className="sg-overlay" style={styles.overlay} onClick={closeDraftModal}>
           <div className="sg-modal" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <div style={styles.modalTitle}>{draftCompany.name}</div>
+              <div>
+                <div style={styles.modalTitle}>{draftCompany.name}</div>
+                {draftTemplate && (
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Template: {draftTemplate}</div>
+                )}
+              </div>
               <button className="sg-btn sg-btn-ghost" onClick={closeDraftModal}>
                 Close
               </button>
